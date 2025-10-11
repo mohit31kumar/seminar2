@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
-import 'package:collection/collection.dart';
-import '../providers/app_state.dart';
-import '../data/static_data.dart';
+import 'package:collection/collection.dart'; // For groupBy
+import 'package:seminar_booking_app/providers/app_state.dart'; // Corrected import
 
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
@@ -16,12 +15,13 @@ class AnalyticsScreen extends StatelessWidget {
     }
     
     final theme = Theme.of(context);
-    final bookings = appState.allBookings;
+    final bookings = appState.bookings;
+    final halls = appState.halls;
     
     final bookingsByHall = groupBy(bookings, (b) => b.hall);
-    final hallChartData = seminarHalls.map((hall) {
-      final count = bookingsByHall[hall]?.length ?? 0;
-      return BarChartGroupData(x: seminarHalls.indexOf(hall), barRods: [
+    final hallChartData = halls.map((hall) {
+      final count = bookingsByHall[hall.name]?.length ?? 0;
+      return BarChartGroupData(x: halls.indexOf(hall), barRods: [
         BarChartRodData(toY: count.toDouble(), color: theme.primaryColor, width: 12, borderRadius: BorderRadius.circular(4))
       ]);
     }).toList();
@@ -43,7 +43,10 @@ class AnalyticsScreen extends StatelessWidget {
                       BarChartData(
                         barGroups: hallChartData,
                         titlesData: FlTitlesData(
-                          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, m) => Text(seminarHalls[v.toInt()].substring(0,3), style: const TextStyle(fontSize: 10)), reservedSize: 20)),
+                          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (value, meta) {
+                            if (value.toInt() >= halls.length) return const SizedBox.shrink();
+                            return Text(halls[value.toInt()].name.substring(0,3), style: const TextStyle(fontSize: 10));
+                          }, reservedSize: 20)),
                           leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 28)),
                           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),

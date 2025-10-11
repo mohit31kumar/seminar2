@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/app_state.dart';
+import 'package:seminar_booking_app/providers/app_state.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,14 +11,14 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'admin@poornima.edu.in');
-  final _passwordController = TextEditingController(text: 'admin');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   String? _errorText;
 
   Future<void> _performLogin() async {
     if (_formKey.currentState!.validate()) {
-      final appState = context.read<AppState>();
-      final success = await appState.login(
+      setState(() { _errorText = null; });
+      final success = await context.read<AppState>().login(
         _emailController.text,
         _passwordController.text,
       );
@@ -32,6 +32,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = context.watch<AppState>().isLoading;
+
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
@@ -47,6 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _emailController,
                   decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
                   validator: (v) => v!.isEmpty ? 'Required' : null,
+                  keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -61,9 +64,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: _performLogin,
+                  onPressed: isLoading ? null : _performLogin,
                   style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                  child: const Text('Login'),
+                  child: isLoading ? const CircularProgressIndicator() : const Text('Login'),
                 ),
               ],
             ),

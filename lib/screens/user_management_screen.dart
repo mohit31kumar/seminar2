@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/app_state.dart';
+import 'package:seminar_booking_app/providers/app_state.dart';
 
 class UserManagementScreen extends StatelessWidget {
   const UserManagementScreen({super.key});
@@ -11,7 +11,7 @@ class UserManagementScreen extends StatelessWidget {
     if (appState.currentUser?.role != 'admin') {
       return const Center(child: Text('Access Denied.'));
     }
-    final users = appState.users;
+    final users = appState.allUsers;
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -25,7 +25,7 @@ class UserManagementScreen extends StatelessWidget {
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
             child: ListTile(
-              leading: CircleAvatar(child: Text(user.name[0])),
+              leading: CircleAvatar(child: Text(user.name.isNotEmpty ? user.name[0] : '?')),
               title: Text(user.name),
               subtitle: Text(user.email),
               trailing: user.role != 'admin' ? IconButton(

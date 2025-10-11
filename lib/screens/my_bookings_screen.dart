@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/app_state.dart';
+import 'package:seminar_booking_app/providers/app_state.dart';
 
 class MyBookingsScreen extends StatelessWidget {
   const MyBookingsScreen({super.key});
@@ -25,7 +25,7 @@ class MyBookingsScreen extends StatelessWidget {
       return const Center(child: Text('Please log in.'));
     }
 
-    final myBookings = appState.allBookings.where((b) => b.requestedBy == currentUser.name).toList();
+    final myBookings = appState.bookings.where((b) => b.requesterId == currentUser.uid).toList();
 
     return myBookings.isEmpty
         ? const Center(child: Text('You have no booking requests.'))

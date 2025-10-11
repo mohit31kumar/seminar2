@@ -1,45 +1,37 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
+# Flutter/Dart build artifacts
 
-# IntelliJ related
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+ios/Pods/
+ios/Flutter/App.framework
+ios/Flutter/engine.podspec
+ios/Flutter/flutter_export_environment.sh
+# IDE-specific files
+
+.idea/
+.vscode/
 *.iml
 *.ipr
 *.iws
-.idea/
+# Sensitive configuration files
+# IMPORTANT: This file contains your Firebase project keys and should NEVER be committed.
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+lib/firebase_options.dart
+# Dependency lock file
 
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
+pubspec.lock
+# Log files
 
-# Symbolication related
-app.*.symbols
+*.log
+# OS-generated files
 
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db 
+Thumbs.db

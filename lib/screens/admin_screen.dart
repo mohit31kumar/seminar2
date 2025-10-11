@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/app_state.dart';
-import '../widgets/stat_card.dart'; 
+import 'package:seminar_booking_app/providers/app_state.dart';
+import 'package:seminar_booking_app/widgets/stat_card.dart';
 
 class AdminScreen extends StatelessWidget {
   const AdminScreen({super.key});
@@ -13,10 +13,10 @@ class AdminScreen extends StatelessWidget {
       return const Center(child: Text('Access Denied.'));
     }
 
-    final allBookings = appState.allBookings;
+    final allBookings = appState.bookings;
+    final userCount = appState.allUsers.length;
     final pendingCount = allBookings.where((b) => b.status == 'pending').length;
     final bookedCount = allBookings.where((b) => b.status == 'booked').length;
-    final userCount = appState.users.length;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),

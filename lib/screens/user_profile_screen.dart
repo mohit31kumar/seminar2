@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/app_state.dart';
+import 'package:seminar_booking_app/providers/app_state.dart';
 
 class UserProfileScreen extends StatelessWidget {
   const UserProfileScreen({super.key});
