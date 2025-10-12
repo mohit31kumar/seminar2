@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "890946382807",
+    "project_id": "college-seminar",
+    "storage_bucket": "college-seminar.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:890946382807:android:66ae74e204af36cfe77992",
+        "android_client_info": {
+          "package_name": "com.example.seminar2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0uM5FMi2MUa2DBnZhOj7DAKXQnAVDmqo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
