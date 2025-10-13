@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:seminar_booking_app/models/booking.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
+import 'package:seminar_booking_app/widgets/admin/reallocate_dialog.dart';
 import 'package:intl/intl.dart';
 
 class ReviewBookingScreen extends StatelessWidget {
@@ -22,23 +23,30 @@ class ReviewBookingScreen extends StatelessWidget {
           child: TextFormField(
             controller: reasonController,
             autofocus: true,
-            decoration: const InputDecoration(hintText: 'e.g., Conflicting VIP event'),
-            validator: (value) => value!.trim().isEmpty ? 'A reason is required' : null,
+            decoration:
+                const InputDecoration(hintText: 'e.g., Conflicting VIP event'),
+            validator: (value) =>
+                value!.trim().isEmpty ? 'A reason is required' : null,
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
+            onPressed: () async {
               if (formKey.currentState!.validate()) {
-                context.read<AppState>().reviewBooking(
-                  bookingId: booking.id,
-                  newStatus: 'Rejected',
-                  rejectionReason: reasonController.text.trim(),
-                );
-                Navigator.pop(dialogContext); // Close dialog
-                Navigator.pop(context); // Go back from review screen
+                await context.read<AppState>().reviewBooking(
+                      bookingId: booking.id,
+                      newStatus: 'Rejected',
+                      rejectionReason: reasonController.text.trim(),
+                    );
+
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext); // Close the dialog
+                  Navigator.pop(context); // Close the review screen
+                }
               }
             },
             child: const Text('Confirm Rejection'),
@@ -47,17 +55,19 @@ class ReviewBookingScreen extends StatelessWidget {
       ),
     );
   }
-  
-  // TODO: Implement Re-allocation Dialog
+
+  /// Shows a dialog to find and select an alternative hall for the booking.
   void _showReallocateDialog(BuildContext context) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Re-allocation feature not yet implemented.')),
-      );
+    showDialog(
+      context: context,
+      builder: (dialogContext) => ReallocateDialog(conflictingBooking: booking),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final formattedDate = DateFormat.yMMMMd().format(DateTime.parse(booking.date));
+    final formattedDate =
+        DateFormat.yMMMMd().format(DateTime.parse(booking.date));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Review Request')),
@@ -66,61 +76,75 @@ class ReviewBookingScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildDetailCard(
-              'Event Details',
-              [
-                _buildDetailRow('Event Title', booking.title),
-                // _buildDetailRow('Purpose', booking.purpose), // Removed as 'purpose' is not a field in Booking model
-                _buildDetailRow('Attendees', booking.expectedAttendees.toString()),
-                if (booking.additionalRequirements.isNotEmpty)
-                  _buildDetailRow('Requirements', booking.additionalRequirements),
-              ],
-            ),
+            _buildDetailCard(context, 'Event Details', [
+              _buildDetailRow(context, 'Title', booking.title),
+              _buildDetailRow(context, 'Purpose', booking.purpose),
+              _buildDetailRow(
+                  context, 'Attendees', booking.expectedAttendees.toString()),
+              if (booking.additionalRequirements.isNotEmpty)
+                _buildDetailRow(
+                    context, 'Requirements', booking.additionalRequirements),
+            ]),
             const SizedBox(height: 16),
-            _buildDetailCard(
-              'Schedule & Hall',
-              [
-                _buildDetailRow('Hall', booking.hall),
-                _buildDetailRow('Date', formattedDate),
-                _buildDetailRow('Time', '${booking.startTime} - ${booking.endTime}'),
-              ],
-            ),
+            _buildDetailCard(context, 'Schedule & Hall', [
+              _buildDetailRow(context, 'Hall', booking.hall),
+              _buildDetailRow(context, 'Date', formattedDate),
+              _buildDetailRow(
+                  context, 'Time', '${booking.startTime} - ${booking.endTime}'),
+            ]),
             const SizedBox(height: 16),
-            _buildDetailCard(
-              'Requester Information',
-              [
-                _buildDetailRow('Name', booking.requestedBy),
-                _buildDetailRow('Department', booking.department),
-              ],
-            ),
+            _buildDetailCard(context, 'Requester Information', [
+              _buildDetailRow(context, 'Name', booking.requestedBy),
+              _buildDetailRow(context, 'Department', booking.department),
+            ]),
           ],
         ),
       ),
-      // Action buttons at the bottom
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.close),
-                label: const Text('Reject'),
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
-                onPressed: () => _showRejectionDialog(context),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.swap_horiz_outlined),
+                label: const Text('Re-allocate'),
+                style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12)),
+                onPressed: () => _showReallocateDialog(context),
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.check),
-                label: const Text('Approve'),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                onPressed: () {
-                   context.read<AppState>().reviewBooking(bookingId: booking.id, newStatus: 'Approved');
-                   Navigator.pop(context); // Go back after approving
-                },
-              ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.close),
+                    label: const Text('Reject'),
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red)),
+                    onPressed: () => _showRejectionDialog(context),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.check),
+                    label: const Text('Approve'),
+                    style:
+                        ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    onPressed: () async {
+                      await context.read<AppState>().reviewBooking(
+                          bookingId: booking.id, newStatus: 'Approved');
+
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -128,14 +152,19 @@ class ReviewBookingScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailCard(String title, List<Widget> children) {
+  Widget _buildDetailCard(
+      BuildContext context, String title, List<Widget> children) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const Divider(height: 24),
             ...children,
           ],
@@ -144,13 +173,21 @@ class ReviewBookingScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(BuildContext context, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 100, child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodySmall?.color),
+            ),
+          ),
           Expanded(child: Text(value)),
         ],
       ),

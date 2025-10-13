@@ -58,9 +58,8 @@ class AdminHomeScreen extends StatelessWidget {
                            context.go('/admin/review', extra: booking);
                           // This screen would allow the admin to Approve, Reject, or Re-allocate.
                           // e.g., context.go('/admin/review', extra: booking);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Review screen not yet implemented.')),
-                          );
+                        
+                        
                         },
                       ),
                     );

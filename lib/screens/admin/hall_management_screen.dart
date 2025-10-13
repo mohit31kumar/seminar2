@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:seminar_booking_app/services/firestore_service.dart';
 import 'package:seminar_booking_app/widgets/admin/add_hall_dialog.dart';
+import 'package:seminar_booking_app/widgets/admin/edit_hall_dialog.dart';
 
 class HallManagementScreen extends StatelessWidget {
   const HallManagementScreen({super.key});
@@ -35,11 +36,14 @@ class HallManagementScreen extends StatelessWidget {
                 final hall = halls[index];
                 return Card(
                   child: SwitchListTile(
-                    title: Text(hall.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    title: Text(hall.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text(
                       hall.isAvailable ? 'Booking Active' : 'Booking Paused',
                       style: TextStyle(
-                        color: hall.isAvailable ? Colors.green.shade600 : Colors.red.shade600,
+                        color: hall.isAvailable
+                            ? Colors.green.shade600
+                            : Colors.red.shade600,
                       ),
                     ),
                     value: hall.isAvailable,
@@ -51,10 +55,12 @@ class HallManagementScreen extends StatelessWidget {
                       icon: const Icon(Icons.edit_outlined),
                       tooltip: 'Edit Hall Details',
                       onPressed: () {
-                        // TODO: Implement a dialog or screen for the admin to edit hall details
-                        // such as name, capacity, and the facilities list.
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Edit functionality is not yet implemented.')),
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (BuildContext context) {
+                            return EditHallDialog(hall: hall);
+                          },
                         );
                       },
                     ),
@@ -67,7 +73,7 @@ class HallManagementScreen extends StatelessWidget {
           showDialog(
             context: context,
             // barrierDismissible is false to prevent closing while loading
-            barrierDismissible: false, 
+            barrierDismissible: false,
             builder: (BuildContext context) {
               return const AddHallDialog();
             },

@@ -5,6 +5,21 @@ admin.initializeApp();
 const db = admin.firestore();
 
 /**
+ * Creates a notification document in Firestore.
+ * @param {string} userId The UID of the user to create the notification for.
+ * @param {string} title The title of the notification.
+ * @param {string} body The body of the notification.
+ */
+async function createNotification(userId, title, body) {
+  return db.collection("notifications").add({
+    userId: userId,
+    title: title,
+    body: body,
+    isRead: false,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+  });
+}
+/**
  * Sends a push notification to a specific user.
  * @param {string} userId The UID of the user to notify.
  * @param {string} title The title of the notification.
@@ -31,11 +46,13 @@ async function sendNotificationToAdmins(title, body) {
       .where("role", "==", "admin").get();
   if (adminsSnapshot.empty) return;
 
+  const notificationPromises = [];
   const adminTokens = [];
   adminsSnapshot.forEach((doc) => {
     const tokens = doc.data().fcmTokens;
     if (tokens && tokens.length > 0) {
       adminTokens.push(...tokens);
+      notificationPromises.push(createNotification(doc.id, title, body));
     }
   });
 
@@ -43,6 +60,9 @@ async function sendNotificationToAdmins(title, body) {
 
   const payload = {notification: {title, body}};
   await admin.messaging().sendToDevice(adminTokens, payload);
+
+  // Also create the notification documents in Firestore for each admin
+  await Promise.all(notificationPromises);
 }
 
 
@@ -91,6 +111,7 @@ exports.onBookingStatusUpdate = functions.firestore
       }
 
       await sendNotificationToUser(userId, title, body);
+      await createNotification(userId, title, body);
     });
 
 // 3. Notify admins when a user cancels a booking.

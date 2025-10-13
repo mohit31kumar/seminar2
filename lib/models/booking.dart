@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Booking {
   final String id; // The document ID from Firestore
   final String title;
+  final String purpose;
   final String hall;
   final String date; // Stored in "YYYY-MM-DD" format
   final String startTime; // Stored in "HH:MM" 24-hour format
@@ -21,6 +22,7 @@ class Booking {
   Booking({
     required this.id,
     required this.title,
+    required this.purpose,
     required this.hall,
     required this.date,
     required this.startTime,
@@ -42,6 +44,7 @@ class Booking {
     return Booking(
       id: snapshot.id,
       title: data['title'] ?? 'Untitled Event',
+      purpose: data['purpose'] ??'',
       hall: data['hall'] ?? 'N/A',
       date: data['date'] ?? '',
       startTime: data['startTime'] ?? '',
@@ -60,6 +63,7 @@ class Booking {
   Map<String, dynamic> toJson() {
     return {
       'title': title,
+      'purpose': purpose,
       'hall': hall,
       'date': date,
       'startTime': startTime,

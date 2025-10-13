@@ -42,7 +42,8 @@ class AppShell extends StatelessWidget {
             onPressed: () {
               context.go('/notifications');
               // Mark notifications as read as soon as the user opens the screen
-              context.read<AppState>().markNotificationsAsRead();
+              Future.microtask(
+                  () => context.read<AppState>().markNotificationsAsRead());
             },
           ),
           // User profile and logout menu
@@ -81,17 +82,23 @@ class AppShell extends StatelessWidget {
   List<BottomNavigationBarItem> _buildNavItems(bool isAdmin) {
     if (isAdmin) {
       return const [
-        BottomNavigationBarItem(icon: Icon(Icons.inbox_outlined), label: 'Pending'),
-        BottomNavigationBarItem(icon: Icon(Icons.business_outlined), label: 'Manage Halls'),
-        BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), label: 'Schedule'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.inbox_outlined), label: 'Pending'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.business_outlined), label: 'Manage Halls'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_month_outlined), label: 'Schedule'),
         BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'More'),
       ];
     } else {
       return const [
         BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
-        BottomNavigationBarItem(icon: Icon(Icons.business_outlined), label: 'Facilities'),
-        BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Book Hall'),
-        BottomNavigationBarItem(icon: Icon(Icons.list_alt_outlined), label: 'My Bookings'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.business_outlined), label: 'Facilities'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.add_circle_outline), label: 'Book Hall'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.list_alt_outlined), label: 'My Bookings'),
       ];
     }
   }
@@ -105,7 +112,8 @@ class AppShell extends StatelessWidget {
       if (location == '/admin/halls') return 1;
       if (location == '/admin/bookings') return 2;
       // Group all other admin screens under the 'More' tab
-      if (location == '/admin/users' || location == '/admin/analytics') return 3;
+      if (location == '/admin/users' || location == '/admin/analytics')
+        return 3;
     } else {
       if (location == '/') return 0;
       if (location == '/facilities') return 1;
@@ -120,9 +128,15 @@ class AppShell extends StatelessWidget {
   void _onItemTapped(int index, BuildContext context, bool isAdmin) {
     if (isAdmin) {
       switch (index) {
-        case 0: context.go('/admin/home'); break;
-        case 1: context.go('/admin/halls'); break;
-        case 2: context.go('/admin/bookings'); break;
+        case 0:
+          context.go('/admin/home');
+          break;
+        case 1:
+          context.go('/admin/halls');
+          break;
+        case 2:
+          context.go('/admin/bookings');
+          break;
         case 3:
           // For admins, 'More' could lead to user management or analytics
           // Here, we'll default to User Management
@@ -131,10 +145,18 @@ class AppShell extends StatelessWidget {
       }
     } else {
       switch (index) {
-        case 0: context.go('/'); break;
-        case 1: context.go('/facilities'); break;
-        case 2: context.go('/booking'); break;
-        case 3: context.go('/my-bookings'); break;
+        case 0:
+          context.go('/');
+          break;
+        case 1:
+          context.go('/facilities');
+          break;
+        case 2:
+          context.go('/booking');
+          break;
+        case 3:
+          context.go('/my-bookings');
+          break;
       }
     }
   }

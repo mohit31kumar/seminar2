@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart' as auth;
+import 'package:firebase_core/firebase_core.dart' as auth;
 import 'package:seminar_booking_app/models/user.dart';
 import 'package:seminar_booking_app/services/firestore_service.dart';
 
@@ -41,7 +42,48 @@ class AuthService {
     }
   }
 
-  Future<User?> signInWithEmailAndPassword(String email, String password) async {
+  /// Admin-only function to create a new user.
+  Future<String?> createUserByAdmin({
+    required String email,
+    required String password,
+    required String name,
+    required String department,
+    required String employeeId,
+    required String role,
+  }) async {
+    try {
+      const tempAppName = 'tempAdminApp';
+      auth.FirebaseApp tempApp = auth.Firebase.apps.firstWhere(
+          (app) => app.name == tempAppName,
+          orElse: () => throw Exception('App not found'));
+
+      // We need a temporary app instance to create a user without signing in.
+      tempApp = await auth.Firebase.initializeApp(
+          name: tempAppName, options: auth.Firebase.app().options);
+      final tempAuth = auth.FirebaseAuth.instanceFor(app: tempApp);
+
+      final credential = await tempAuth.createUserWithEmailAndPassword(
+          email: email, password: password);
+
+      if (credential.user == null) return "An unknown error occurred.";
+
+      await _firestoreService.createAdminUser(
+          uid: credential.user!.uid,
+          name: name,
+          email: email,
+          department: department,
+          employeeId: employeeId,
+          role: role);
+
+      await tempApp.delete();
+      return null; // Success
+    } on auth.FirebaseAuthException catch (e) {
+      return e.message;
+    }
+  }
+
+  Future<User?> signInWithEmailAndPassword(
+      String email, String password) async {
     try {
       final credential = await _firebaseAuth.signInWithEmailAndPassword(
         email: email,

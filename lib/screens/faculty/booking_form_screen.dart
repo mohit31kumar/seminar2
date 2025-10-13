@@ -27,7 +27,7 @@ class BookingFormScreen extends StatefulWidget {
 class _BookingFormScreenState extends State<BookingFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _purposeController = TextEditingController();
+  final _purposeController = TextEditingController(); // <-- ADDED
   final _attendeesController = TextEditingController();
   final _requirementsController = TextEditingController();
   bool _isLoading = false;
@@ -51,8 +51,9 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
       final endDateTime = startDateTime.add(Duration(hours: widget.duration));
 
       final newBooking = Booking(
-        id: '', 
+        id: '',
         title: _titleController.text.trim(),
+        purpose: _purposeController.text.trim(), // <-- ADDED
         hall: widget.hall.name,
         date: DateFormat('yyyy-MM-dd').format(widget.date),
         startTime: DateFormat('HH:mm').format(startDateTime),
@@ -66,7 +67,6 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         rejectionReason: null,
       );
 
-      // ✅ FIX: Changed to call the method on AppState, not FirestoreService directly.
       await appState.submitBooking(newBooking);
 
       if (mounted) {
@@ -91,6 +91,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
               const SizedBox(height: 24),
               TextFormField(controller: _titleController, decoration: const InputDecoration(labelText: 'Event Title', border: OutlineInputBorder()), validator: (v) => v!.isEmpty ? 'This field is required' : null),
               const SizedBox(height: 16),
+              // ✅ FIX: Added the TextFormField for Purpose
               TextFormField(controller: _purposeController, decoration: const InputDecoration(labelText: 'Purpose of Event', border: OutlineInputBorder()), maxLines: 3, validator: (v) => v!.isEmpty ? 'This field is required' : null),
               const SizedBox(height: 16),
               TextFormField(
@@ -120,6 +121,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
       ),
     );
   }
+
 
   Widget _buildSummaryCard() {
     final formattedDate = DateFormat.yMMMMd().format(widget.date);

@@ -1,20 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:seminar_booking_app/models/seminar_hall.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 
-class AddHallDialog extends StatefulWidget {
-  const AddHallDialog({super.key});
+class EditHallDialog extends StatefulWidget {
+  final SeminarHall hall;
+  const EditHallDialog({super.key, required this.hall});
 
   @override
-  State<AddHallDialog> createState() => _AddHallDialogState();
+  State<EditHallDialog> createState() => _EditHallDialogState();
 }
 
-class _AddHallDialogState extends State<AddHallDialog> {
+class _EditHallDialogState extends State<EditHallDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _capacityController = TextEditingController();
-  final _facilitiesController = TextEditingController();
+  late TextEditingController _nameController;
+  late TextEditingController _capacityController;
+  late TextEditingController _facilitiesController;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.hall.name);
+    _capacityController =
+        TextEditingController(text: widget.hall.capacity.toString());
+    _facilitiesController =
+        TextEditingController(text: widget.hall.facilities.join(', '));
+  }
 
   @override
   void dispose() {
@@ -34,8 +46,9 @@ class _AddHallDialogState extends State<AddHallDialog> {
           .where((e) => e.isNotEmpty)
           .toList();
 
-      try {
-        await context.read<AppState>().addHall(
+      try { 
+        await context.read<AppState>().updateHall(
+              hallId: widget.hall.id,
               name: _nameController.text.trim(),
               capacity: int.parse(_capacityController.text),
               facilities: facilitiesList,
@@ -45,7 +58,7 @@ class _AddHallDialogState extends State<AddHallDialog> {
           Navigator.of(context).pop(); // Close the dialog on success
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('New hall added successfully!'),
+              content: Text('Hall updated successfully!'),
               backgroundColor: Colors.green,
             ),
           );
@@ -54,7 +67,7 @@ class _AddHallDialogState extends State<AddHallDialog> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error adding hall: $e'),
+              content: Text('Error updating hall: $e'),
               backgroundColor: Colors.red,
             ),
           );
@@ -70,7 +83,7 @@ class _AddHallDialogState extends State<AddHallDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add New Seminar Hall'),
+      title: const Text('Edit Seminar Hall'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -118,7 +131,7 @@ class _AddHallDialogState extends State<AddHallDialog> {
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Add Hall'),
+              : const Text('Save Changes'),
         ),
       ],
     );

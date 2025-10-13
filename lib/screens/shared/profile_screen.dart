@@ -20,7 +20,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.didChangeDependencies();
     final currentUser = context.read<AppState>().currentUser;
     _nameController = TextEditingController(text: currentUser?.name ?? '');
-    _departmentController = TextEditingController(text: currentUser?.department ?? '');
+    _departmentController =
+        TextEditingController(text: currentUser?.department ?? '');
   }
 
   @override
@@ -30,20 +31,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  void _handleSaveChanges() {
+  Future<void> _handleSaveChanges() async {
     if (_formKey.currentState!.validate()) {
-      // TODO: Implement update logic in AppState and FirestoreService
-      // final appState = context.read<AppState>();
-      // appState.updateUserProfile(
-      //   name: _nameController.text,
-      //   department: _departmentController.text,
-      // );
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile update functionality is not yet implemented.')),
-      );
-      
-      setState(() => _isEditing = false);
+      final appState = context.read<AppState>();
+      try {
+        await appState.updateUserProfile(
+          name: _nameController.text.trim(),
+          department: _departmentController.text.trim(),
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Profile updated successfully!'),
+                backgroundColor: Colors.green),
+          );
+          setState(() => _isEditing = false);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('Error updating profile: $e'),
+                backgroundColor: Colors.red),
+          );
+        }
+      }
     }
   }
 
@@ -105,7 +117,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.business_center_outlined),
                 ),
-                validator: (v) => v!.isEmpty ? 'Department cannot be empty' : null,
+                validator: (v) =>
+                    v!.isEmpty ? 'Department cannot be empty' : null,
               ),
               const SizedBox(height: 20),
               // --- Read-Only Fields ---
