@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:seminar_booking_app/models/booking.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:intl/intl.dart';
 
@@ -12,84 +12,125 @@ class BookingHistoryScreen extends StatefulWidget {
 }
 
 class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
-  String _searchTerm = '';
-  List<Booking> _filteredBookings = [];
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _statusFilter = 'All';
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Initialize the list with all bookings
-    final allBookings = context.read<AppState>().bookings;
-    _filteredBookings = List.from(allBookings)
-      ..sort((a, b) => b.date.compareTo(a.date));
-  }
 
-  void _filterBookings(String query) {
-    final allBookings = context.read<AppState>().bookings;
-    setState(() {
-      _searchTerm = query;
-      if (_searchTerm.isEmpty) {
-        _filteredBookings = List.from(allBookings)
-          ..sort((a, b) => b.date.compareTo(a.date));
-      } else {
-        _filteredBookings = allBookings.where((booking) {
-          final lowerQuery = query.toLowerCase();
-          return booking.title.toLowerCase().contains(lowerQuery) ||
-              booking.requestedBy.toLowerCase().contains(lowerQuery) ||
-              booking.hall.toLowerCase().contains(lowerQuery);
-        }).toList()
-          ..sort((a, b) => b.date.compareTo(a.date));
-      }
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
     });
   }
 
-  @override
+
+  Widget _buildStatusChip(String status) {
+    return ChoiceChip(
+      label: Text(status),
+      selected: _statusFilter == status,
+      onSelected: (selected) {
+        setState(() {
+          _statusFilter = selected ? status : 'All';
+        });
+      },
+      selectedColor: Theme.of(context).primaryColor,
+      labelStyle: TextStyle(
+        color: _statusFilter == status ? Colors.white : null,
+      ),
+    );
+  }
+
+ @override
   Widget build(BuildContext context) {
+    // ✅ FIX: Use context.watch() here to listen for real-time data updates.
+    final allBookings = context.watch<AppState>().bookings;
+    final currentUser = context.watch<AppState>().currentUser;
+
+    // Apply filters and search query on every build.
+    final filteredBookings = allBookings.where((booking) {
+      final statusMatch = _statusFilter == 'All' || booking.status == _statusFilter;
+      final searchMatch = _searchQuery.isEmpty ||
+          booking.title.toLowerCase().contains(_searchQuery) ||
+          booking.requestedBy.toLowerCase().contains(_searchQuery) ||
+          booking.hall.toLowerCase().contains(_searchQuery);
+      return statusMatch && searchMatch;
+    }).toList()
+    ..sort((a,b) => DateTime.parse(b.date).compareTo(DateTime.parse(a.date)));
+
+    // Security check
+    if (currentUser?.role != 'admin') {
+      return const Scaffold(body: Center(child: Text('Access Denied.')));
+    }
+
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Booking History'),
       ),
       body: Column(
         children: [
+          // --- Search Bar ---
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
-              onChanged: _filterBookings,
-              decoration: const InputDecoration(
-                labelText: 'Search by title, name, or hall',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search by title, requester, or hall',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () => _searchController.clear(),
+                      )
+                    : null,
               ),
             ),
           ),
-          Expanded(
-            child: _filteredBookings.isEmpty
-                ? Center(
-                    child: Text(_searchTerm.isEmpty
-                        ? 'No bookings found.'
-                        : 'No results for "$_searchTerm"'))
+          // --- Filter Chips ---
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Wrap(
+              spacing: 8.0,
+              children: [
+                _buildStatusChip('All'),
+                _buildStatusChip('Approved'),
+                _buildStatusChip('Pending'),
+                _buildStatusChip('Rejected'),
+                _buildStatusChip('Cancelled'),
+              ],
+            ),
+          ),
+          const Divider(height: 24),
+          // --- Results List ---
+           Expanded(
+            child: filteredBookings.isEmpty
+                ? const Center(child: Text('No bookings match your criteria.'))
                 : ListView.builder(
-                    itemCount: _filteredBookings.length,
+                    itemCount: filteredBookings.length,
                     itemBuilder: (context, index) {
-                      final booking = _filteredBookings[index];
+                      final booking = filteredBookings[index];
                       return Card(
-                        margin: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 6),
+                         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                         child: ListTile(
                           title: Text(booking.title),
-                          subtitle:
-                              Text('${booking.requestedBy} - ${booking.hall}'),
+                          subtitle: Text('${booking.requestedBy} - ${booking.hall}'),
                           trailing: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(DateFormat.yMd()
-                                  .format(DateTime.parse(booking.date))),
-                              Text(booking.status,
-                                  style: TextStyle(
-                                      color: _getStatusColor(booking.status))),
-                            ],
-                          ),
+                             crossAxisAlignment: CrossAxisAlignment.end,
+                             mainAxisAlignment: MainAxisAlignment.center,
+                             children: [
+                               Text(DateFormat.yMd().format(DateTime.parse(booking.date))),
+                               Text(booking.status, style: TextStyle(color: _getStatusColor(booking.status))),
+                             ],
+                           ),
+                          onTap: () {
+                            context.go('/admin/review/${booking.id}');
+                          },
                         ),
                       );
                     },
@@ -99,6 +140,9 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
       ),
     );
   }
+}
+
+
 
   Color _getStatusColor(String status) {
     switch (status) {
@@ -114,4 +158,3 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
         return Colors.black;
     }
   }
-}

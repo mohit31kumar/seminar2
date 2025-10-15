@@ -55,9 +55,8 @@ class AdminHomeScreen extends StatelessWidget {
                         isThreeLine: true,
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () {
-                           context.go('/admin/review', extra: booking);
-                          // This screen would allow the admin to Approve, Reject, or Re-allocate.
-                          // e.g., context.go('/admin/review', extra: booking);
+                          // Navigate to the review screen with the booking ID in the path
+                          context.go('/admin/review/${booking.id}');
                         
                         
                         },

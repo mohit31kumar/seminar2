@@ -4,7 +4,6 @@ import 'package:seminar_booking_app/models/booking.dart';
 import 'package:seminar_booking_app/models/seminar_hall.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 
-/// A dialog for admins to re-allocate a booking to a different, available hall.
 class ReallocateDialog extends StatefulWidget {
   final Booking conflictingBooking;
 
@@ -22,8 +21,6 @@ class _ReallocateDialogState extends State<ReallocateDialog> {
   @override
   void initState() {
     super.initState();
-    // Find available halls as soon as the dialog is shown.
-    // Use a post-frame callback to safely access the provider.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _findAvailableHalls();
     });
@@ -34,33 +31,17 @@ class _ReallocateDialogState extends State<ReallocateDialog> {
     final allBookings = appState.bookings;
     final allHalls = appState.halls;
 
-    final conflictingStart = DateTime.parse(
-        '${widget.conflictingBooking.date} ${widget.conflictingBooking.startTime}');
-    final conflictingEnd = DateTime.parse(
-        '${widget.conflictingBooking.date} ${widget.conflictingBooking.endTime}');
+    final conflictingStart = DateTime.parse('${widget.conflictingBooking.date} ${widget.conflictingBooking.startTime}');
+    final conflictingEnd = DateTime.parse('${widget.conflictingBooking.date} ${widget.conflictingBooking.endTime}');
 
     final available = allHalls.where((hall) {
-      // Exclude the original hall and any halls marked as unavailable for booking
-      if (hall.name == widget.conflictingBooking.hall || !hall.isAvailable) {
-        return false;
-      }
-
-      // Check for any overlapping bookings in this hall
+      if (hall.name == widget.conflictingBooking.hall || !hall.isAvailable) return false;
       final hasOverlap = allBookings.any((booking) {
-        if (booking.hall != hall.name ||
-            (booking.status != 'Approved' && booking.status != 'Pending')) {
-          return false;
-        }
-        final existingStart =
-            DateTime.parse('${booking.date} ${booking.startTime}');
-        final existingEnd =
-            DateTime.parse('${booking.date} ${booking.endTime}');
-
-        // Overlap condition: startA < endB and endA > startB
-        return conflictingStart.isBefore(existingEnd) &&
-            conflictingEnd.isAfter(existingStart);
+        if (booking.hall != hall.name || (booking.status != 'Approved' && booking.status != 'Pending')) return false;
+        final existingStart = DateTime.parse('${booking.date} ${booking.startTime}');
+        final existingEnd = DateTime.parse('${booking.date} ${booking.endTime}');
+        return conflictingStart.isBefore(existingEnd) && conflictingEnd.isAfter(existingStart);
       });
-
       return !hasOverlap;
     }).toList();
 
@@ -70,19 +51,20 @@ class _ReallocateDialogState extends State<ReallocateDialog> {
     });
   }
 
+  // ✅ FIX: Make the submission method async
   Future<void> _submitReallocation() async {
     if (_selectedHall != null) {
+      // 1. Await the asynchronous database operation
       await context.read<AppState>().reviewBooking(
-            bookingId: widget.conflictingBooking.id,
-            newStatus: 'Approved',
-            newHall: _selectedHall!.name,
-          );
+        bookingId: widget.conflictingBooking.id,
+        newStatus: 'Approved',
+        newHall: _selectedHall!.name,
+      );
 
+      // 2. Safely navigate after the operation is complete
       if (mounted) {
-        // Pop twice: once for the dialog, once for the review screen
-        Navigator.of(context)
-          ..pop()
-          ..pop();
+        // Pop twice: once for this dialog, once for the review screen
+        Navigator.of(context)..pop()..pop();
       }
     }
   }
@@ -94,8 +76,7 @@ class _ReallocateDialogState extends State<ReallocateDialog> {
       content: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _availableHalls.isEmpty
-              ? const Text(
-                  'No other halls are available during this time slot.')
+              ? const Text('No other halls are available during this time slot.')
               : SizedBox(
                   width: double.maxFinite,
                   child: ListView.builder(
@@ -109,21 +90,15 @@ class _ReallocateDialogState extends State<ReallocateDialog> {
                         value: hall,
                         groupValue: _selectedHall,
                         onChanged: (SeminarHall? value) {
-                          setState(() {
-                            _selectedHall = value;
-                          });
+                          setState(() => _selectedHall = value);
                         },
                       );
                     },
                   ),
                 ),
       actions: <Widget>[
-        TextButton(
-          child: const Text('Cancel'),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        TextButton(child: const Text('Cancel'), onPressed: () => Navigator.of(context).pop()),
         ElevatedButton(
-          // Disable button if no hall is selected or none are available
           onPressed: _selectedHall != null ? _submitReallocation : null,
           child: const Text('Re-allocate & Approve'),
         ),

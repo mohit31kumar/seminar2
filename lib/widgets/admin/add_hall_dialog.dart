@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:seminar_booking_app/providers/app_state.dart';
+import 'package:seminar_booking_app/services/firestore_service.dart';
 
 class AddHallDialog extends StatefulWidget {
   const AddHallDialog({super.key});
@@ -28,6 +28,8 @@ class _AddHallDialogState extends State<AddHallDialog> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
+      final firestoreService = context.read<FirestoreService>();
+
       final facilitiesList = _facilitiesController.text
           .split(',')
           .map((e) => e.trim())
@@ -35,12 +37,11 @@ class _AddHallDialogState extends State<AddHallDialog> {
           .toList();
 
       try {
-        await context.read<AppState>().addHall(
-              name: _nameController.text.trim(),
-              capacity: int.parse(_capacityController.text),
-              facilities: facilitiesList,
-            );
-
+        await firestoreService.addHall(
+          name: _nameController.text.trim(),
+          capacity: int.parse(_capacityController.text.trim()),
+          facilities: facilitiesList,
+        );
         if (mounted) {
           Navigator.of(context).pop(); // Close the dialog on success
           ScaffoldMessenger.of(context).showSnackBar(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:seminar_booking_app/providers/app_state.dart';
+import 'package:seminar_booking_app/services/auth_service.dart';
+
+
 
 class AddUserDialog extends StatefulWidget {
   const AddUserDialog({super.key});
@@ -33,15 +35,18 @@ class _AddUserDialogState extends State<AddUserDialog> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
+            final authService = context.read<AuthService>();
+
       try {
-        final error = await context.read<AppState>().addUser(
-              name: _nameController.text.trim(),
-              email: _emailController.text.trim(),
-              employeeId: _employeeIdController.text.trim(),
-              department: _departmentController.text.trim(),
-              password: _passwordController.text,
-              role: _selectedRole,
-            );
+              
+      final error = await authService.createUserByAdmin(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        name: _nameController.text.trim(),
+        department: _departmentController.text.trim(),
+        employeeId: _employeeIdController.text.trim(),
+        role: _selectedRole,
+      );
 
         if (mounted) {
           if (error == null) {
@@ -124,7 +129,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
                       : null),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _selectedRole,
+                initialValue: _selectedRole,
                 decoration: const InputDecoration(labelText: 'Role'),
                 items: ['Faculty', 'admin']
                     .map((role) =>

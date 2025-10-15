@@ -149,7 +149,7 @@ class FacultyHomeScreen extends StatelessWidget {
             ),
           )
         else
-          ...upcoming.take(3).map((booking) {
+          ...upcoming.take(4).map((booking) {
             // Show up to 3 upcoming events
             final formattedDate =
                 DateFormat.yMMMMd().format(DateTime.parse(booking.date));
@@ -194,7 +194,7 @@ class FacultyHomeScreen extends StatelessWidget {
             ),
           )
         else
-          ...recent.take(3).map((booking) {
+          ...recent.take(4).map((booking) {
             // Show up to 3 recent activities
             return Card(
               child: ListTile(

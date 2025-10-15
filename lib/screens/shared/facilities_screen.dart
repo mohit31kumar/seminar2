@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
-// ignore: unused_import
-import 'package:seminar_booking_app/models/seminar_hall.dart';
+
 
 class FacilitiesScreen extends StatefulWidget {
   const FacilitiesScreen({super.key});

@@ -13,9 +13,7 @@ import 'package:seminar_booking_app/providers/app_state.dart';
 
 // Widgets
 import 'package:seminar_booking_app/widgets/app_shell.dart';
-
 // Screens
-import 'package:seminar_booking_app/screens/splash_screen.dart';
 import 'package:seminar_booking_app/screens/auth/login_screen.dart';
 import 'package:seminar_booking_app/screens/auth/register_screen.dart';
 import 'package:seminar_booking_app/screens/shared/facilities_screen.dart';
@@ -36,6 +34,7 @@ import 'package:seminar_booking_app/models/seminar_hall.dart';
 import 'package:seminar_booking_app/screens/admin/booking_history_screen.dart';
 import 'package:seminar_booking_app/screens/admin/review_booking_screen.dart';
 import 'package:seminar_booking_app/models/booking.dart';
+import 'package:collection/collection.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,7 +43,6 @@ void main() async {
   );
   // Initialize push notification service but don't save token yet
   await PushNotificationService().initialize();
-
   // Set up services to be provided
   final authService = AuthService();
   final firestoreService = FirestoreService();
@@ -104,13 +102,12 @@ class _SeminarAppState extends State<SeminarApp> {
 
 GoRouter createRouter(AppState appState) {
   return GoRouter(
-    initialLocation: '/splash',
+    initialLocation: '/home',
     refreshListenable: appState,
     debugLogDiagnostics: true,
     routes: [
       // Standalone routes (no shell)
-      GoRoute(
-          path: '/splash', builder: (context, state) => const SplashScreen()),
+      // GoRoute(path: '/home', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
           path: '/register',
@@ -139,24 +136,22 @@ GoRouter createRouter(AppState appState) {
               path: '/my-bookings',
               builder: (context, state) => const MyBookingsScreen()),
           GoRoute(
-            path: '/my-bookings/details',
+            path: '/booking/details',
             builder: (context, state) {
               final booking = state.extra as Booking?;
-              if (booking == null)
-                return const Center(
-                    child: Text('Error: Booking data missing.'));
+              if (booking == null) return const Center(child: Text('Error: Booking data not found.'));
               return BookingDetailsScreen(booking: booking);
             },
           ),
-          GoRoute(
-              path: '/booking',
-              builder: (context, state) => const BookingScreen()),
+
+          GoRoute(path: '/booking', builder: (context, state) => const BookingScreen()),
           GoRoute(
             path: '/booking/availability',
             builder: (context, state) {
               final hall = state.extra as SeminarHall?;
-              if (hall == null)
+              if (hall == null) {
                 return const Center(child: Text('Error: Hall not provided.'));
+              }
               return AvailabilityCheckerScreen(hall: hall);
             },
           ),
@@ -164,9 +159,10 @@ GoRouter createRouter(AppState appState) {
             path: '/booking/form',
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>?;
-              if (extra == null)
+              if (extra == null) {
                 return const Center(
                     child: Text('Error: Booking data not provided.'));
+              }
               return BookingFormScreen(
                 hall: extra['hall'],
                 date: extra['date'],
@@ -180,13 +176,23 @@ GoRouter createRouter(AppState appState) {
           GoRoute(
               path: '/admin/home',
               builder: (context, state) => const AdminHomeScreen()),
-          GoRoute(
-            path: '/admin/review',
+         GoRoute(
+            path: '/admin/review/:bookingId',
             builder: (context, state) {
-              final booking = state.extra as Booking?;
-              if (booking == null)
-                return const Center(
-                    child: Text('Error: Booking data missing.'));
+              // 1. Get the booking ID from the URL path.
+              final bookingId = state.pathParameters['bookingId'];
+              if (bookingId == null) {
+                return const Scaffold(body: Center(child: Text('Error: Booking ID missing.')));
+              }
+
+              // 2. Look up the full, correctly-typed booking object from AppState using the ID.
+              final booking = context.read<AppState>().bookings.firstWhereOrNull((b) => b.id == bookingId);
+
+              if (booking == null) {
+                return Scaffold(body: Center(child: Text('Error: Booking with ID $bookingId not found.')));
+              }
+              
+              // 3. Pass the correct, fully-typed object to the screen.
               return ReviewBookingScreen(booking: booking);
             },
           ),
@@ -199,6 +205,9 @@ GoRouter createRouter(AppState appState) {
           GoRoute(
               path: '/admin/history',
               builder: (context, state) => const BookingHistoryScreen()),
+          GoRoute(
+              path: '/admin/halls',
+              builder: (context, state) => const HallManagementScreen()),
           GoRoute(
               path: '/admin/users',
               builder: (context, state) => const UserManagementScreen()),

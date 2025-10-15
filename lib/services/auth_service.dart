@@ -1,19 +1,26 @@
 import 'package:firebase_auth/firebase_auth.dart' as auth;
-import 'package:firebase_core/firebase_core.dart' as auth;
+import 'package:firebase_core/firebase_core.dart' as core;
 import 'package:seminar_booking_app/models/user.dart';
 import 'package:seminar_booking_app/services/firestore_service.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class AuthService {
   final auth.FirebaseAuth _firebaseAuth = auth.FirebaseAuth.instance;
   final FirestoreService _firestoreService = FirestoreService();
 
+  /// A stream that listens for authentication state changes and provides the
+  /// corresponding user profile from Firestore.
   Stream<User?> get user {
     return _firebaseAuth.authStateChanges().asyncMap((firebaseUser) async {
-      if (firebaseUser == null) return null;
+      if (firebaseUser == null) {
+        return null;
+      }
+      // When a user is logged in, fetch their profile from Firestore
       return await _firestoreService.getUser(firebaseUser.uid);
     });
   }
 
+  /// Handles self-registration for Faculty users.
   Future<String?> registerWithEmailAndPassword({
     required String email,
     required String password,
@@ -29,6 +36,7 @@ class AuthService {
       if (credential.user == null) {
         return "An unknown error occurred.";
       }
+      // This calls the updated createUser method with the default 'Faculty' role.
       await _firestoreService.createUser(
         uid: credential.user!.uid,
         name: name,
@@ -36,13 +44,13 @@ class AuthService {
         department: department,
         employeeId: employeeId,
       );
-      return null; // Success
+      return null; // Return null on success
     } on auth.FirebaseAuthException catch (e) {
-      return e.message;
+      return e.message; // Return the specific Firebase error message on failure
     }
   }
 
-  /// Admin-only function to create a new user.
+  /// Admin-only function to create a new user without signing out the admin.
   Future<String?> createUserByAdmin({
     required String email,
     required String password,
@@ -51,39 +59,54 @@ class AuthService {
     required String employeeId,
     required String role,
   }) async {
-    try {
-      const tempAppName = 'tempAdminApp';
-      auth.FirebaseApp tempApp = auth.Firebase.apps.firstWhere(
-          (app) => app.name == tempAppName,
-          orElse: () => throw Exception('App not found'));
+    const tempAppName = 'tempAdminAppCreation';
+    core.FirebaseApp? tempApp;
 
-      // We need a temporary app instance to create a user without signing in.
-      tempApp = await auth.Firebase.initializeApp(
-          name: tempAppName, options: auth.Firebase.app().options);
+    try {
+      // Initialize a temporary, secondary Firebase App instance. This allows
+      // us to create a user without affecting the currently logged-in admin.
+      tempApp = await core.Firebase.initializeApp(
+        name: tempAppName,
+        options: core.Firebase.app().options, // Use options from the default app
+      );
+      
+      // Get the auth instance associated with the temporary app.
       final tempAuth = auth.FirebaseAuth.instanceFor(app: tempApp);
 
+      // Create the new user in Firebase Authentication.
       final credential = await tempAuth.createUserWithEmailAndPassword(
           email: email, password: password);
 
-      if (credential.user == null) return "An unknown error occurred.";
+      if (credential.user == null) {
+        throw Exception("User creation failed in temporary Firebase app.");
+      }
 
-      await _firestoreService.createAdminUser(
-          uid: credential.user!.uid,
-          name: name,
-          email: email,
-          department: department,
-          employeeId: employeeId,
-          role: role);
+      // Create the user document in Firestore with the specified role.
+      await _firestoreService.createUser(
+        uid: credential.user!.uid,
+        name: name,
+        email: email,
+        department: department,
+        employeeId: employeeId,
+        role: role, // Pass the role provided by the admin
+      );
 
-      await tempApp.delete();
       return null; // Success
     } on auth.FirebaseAuthException catch (e) {
-      return e.message;
+      return e.message; // Return specific auth error
+    } catch (e) {
+      print("Admin user creation error: $e");
+      return "An unexpected error occurred.";
+    } finally {
+      // IMPORTANT: Always delete the temporary app instance to clean up resources.
+      if (tempApp != null) {
+        await tempApp.delete();
+      }
     }
   }
 
-  Future<User?> signInWithEmailAndPassword(
-      String email, String password) async {
+  /// Handles user sign-in.
+  Future<User?> signInWithEmailAndPassword(String email, String password) async {
     try {
       final credential = await _firebaseAuth.signInWithEmailAndPassword(
         email: email,
@@ -96,6 +119,7 @@ class AuthService {
     }
   }
 
+  /// Sends a password reset email to the specified address.
   Future<String?> sendPasswordResetEmail(String email) async {
     try {
       await _firebaseAuth.sendPasswordResetEmail(email: email);
@@ -105,7 +129,22 @@ class AuthService {
     }
   }
 
+  /// Signs the current user out.
   Future<void> signOut() async {
     return await _firebaseAuth.signOut();
+  }
+
+  Future<String?> deleteUserByAdmin({required String uid}) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('deleteUser');
+      await callable.call(<String, dynamic>{
+        'uid': uid,
+      });
+      return null; // Success
+    } on FirebaseFunctionsException catch (e) {
+      return e.message;
+    } catch (e) {
+      return "An unexpected error occurred.";
+    }
   }
 }

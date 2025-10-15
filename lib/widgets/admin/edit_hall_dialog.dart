@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:seminar_booking_app/models/seminar_hall.dart';
-import 'package:seminar_booking_app/providers/app_state.dart';
+import 'package:seminar_booking_app/services/firestore_service.dart';
 
 class EditHallDialog extends StatefulWidget {
   final SeminarHall hall;
@@ -40,6 +40,8 @@ class _EditHallDialogState extends State<EditHallDialog> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
+       final firestoreService = context.read<FirestoreService>();
+
       final facilitiesList = _facilitiesController.text
           .split(',')
           .map((e) => e.trim())
@@ -47,12 +49,13 @@ class _EditHallDialogState extends State<EditHallDialog> {
           .toList();
 
       try { 
-        await context.read<AppState>().updateHall(
-              hallId: widget.hall.id,
-              name: _nameController.text.trim(),
-              capacity: int.parse(_capacityController.text),
-              facilities: facilitiesList,
-            );
+         await firestoreService.updateHall(
+          hallId: widget.hall.id,
+          name: _nameController.text.trim(),
+          capacity: int.parse(_capacityController.text.trim()),
+          facilities: facilitiesList,
+        );
+
 
         if (mounted) {
           Navigator.of(context).pop(); // Close the dialog on success

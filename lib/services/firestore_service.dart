@@ -1,28 +1,29 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:seminar_booking_app/models/user.dart';
 import 'package:seminar_booking_app/models/seminar_hall.dart';
-// ignore: unused_import
 import 'package:seminar_booking_app/models/booking.dart';
 import 'package:seminar_booking_app/models/notification.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // USER METHODS
+ // USER METHODS
+  // ✅ FIX: Added an optional 'role' parameter.
   Future<void> createUser({
     required String uid,
     required String name,
     required String email,
     required String department,
     required String employeeId,
+    String role = 'Faculty', // Defaults to 'Faculty' for self-registration
   }) {
-    // This method is called by AuthService during registration
     return _db.collection('users').doc(uid).set({
       'name': name,
       'email': email,
       'department': department,
       'employeeId': employeeId,
-      'role': 'Faculty', // Default role
+      'role': role, // Uses the provided role
       'fcmTokens': [],
     });
   }
@@ -81,10 +82,11 @@ class FirestoreService {
   }
 
   // HALL METHODS
-  Stream<List<SeminarHall>> getSeminarHalls() {
+Stream<List<SeminarHall>> getSeminarHalls() {
     return _db.collection('seminarHalls').snapshots().map((snapshot) =>
         snapshot.docs.map((doc) => SeminarHall.fromFirestore(doc)).toList());
   }
+
 
   Future<void> updateHallAvailability(String hallId, bool isAvailable) {
     return _db
@@ -123,12 +125,23 @@ class FirestoreService {
 
   // BOOKING METHODS
 
-  Stream<List<Booking>> getBookings() {
+/// Saare bookings ka stream fetch karta hai. Sirf ADMIN ke liye.
+  Stream<List<Booking>> getAllBookings() {
     return _db.collection('bookings').snapshots().map((snapshot) =>
         snapshot.docs.map((doc) => Booking.fromFirestore(doc)).toList());
   }
 
-  Future<void> addBooking(Booking booking) {
+  /// Ek specific user ke bookings ka stream fetch karta hai. FACULTY ke liye.
+  Stream<List<Booking>> getUserBookings(String uid) {
+    return _db
+        .collection('bookings')
+        .where('requesterId', isEqualTo: uid)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Booking.fromFirestore(doc)).toList());
+  }
+
+ Future<void> addBooking(Booking booking) {
     return _db.collection('bookings').add(booking.toJson());
   }
 
@@ -137,10 +150,7 @@ class FirestoreService {
   }
 
   Future<void> cancelBooking(String bookingId) {
-    return _db
-        .collection('bookings')
-        .doc(bookingId)
-        .update({'status': 'Cancelled'});
+    return _db.collection('bookings').doc(bookingId).update({'status': 'Cancelled'});
   }
 
   // NOTIFICATION METHODS
@@ -151,17 +161,39 @@ class FirestoreService {
         .collection('notifications')
         .where('userId', isEqualTo: userId)
         .orderBy('timestamp', descending: true)
+        .limit(30)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => AppNotification.fromFirestore(doc))
             .toList());
   }
 
-  Future<void> markNotificationsAsRead(List<String> notificationIds) {
+  /// Sets the 'isRead' flag to true for a list of notification IDs.
+  Future<void> markNotificationsAsRead(List<String> notificationIds) async {
     final batch = _db.batch();
     for (final id in notificationIds) {
-      batch.update(_db.collection('notifications').doc(id), {'isRead': true});
+      final docRef = _db.collection('notifications').doc(id);
+      batch.update(docRef, {'isRead': true});
     }
-    return batch.commit();
+    await batch.commit();
+  }
+
+   /// Calls a cloud function to securely change a user's role.
+  Future<String?> changeUserRole({
+    required String uid,
+    required String newRole,
+  }) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('changeUserRole');
+      await callable.call(<String, dynamic>{
+        'uid': uid,
+        'newRole': newRole,
+      });
+      return null; // Success
+    } on FirebaseFunctionsException catch (e) {
+      return e.message; // Return error from the cloud function
+    } catch (e) {
+      return "An unexpected client-side error occurred.";
+    }
   }
 }

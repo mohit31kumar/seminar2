@@ -41,9 +41,8 @@ class AppShell extends StatelessWidget {
             ),
             onPressed: () {
               context.go('/notifications');
-              // Mark notifications as read as soon as the user opens the screen
-              Future.microtask(
-                  () => context.read<AppState>().markNotificationsAsRead());
+              // Mark notifications as read when the user navigates to the screen
+              context.read<AppState>().markNotificationsAsRead();
             },
           ),
           // User profile and logout menu
@@ -112,8 +111,9 @@ class AppShell extends StatelessWidget {
       if (location == '/admin/halls') return 1;
       if (location == '/admin/bookings') return 2;
       // Group all other admin screens under the 'More' tab
-      if (location == '/admin/users' || location == '/admin/analytics')
+      if (location == '/admin/users' || location == '/admin/analytics') {
         return 3;
+      }
     } else {
       if (location == '/') return 0;
       if (location == '/facilities') return 1;

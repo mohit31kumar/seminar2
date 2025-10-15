@@ -25,6 +25,7 @@ class AppState with ChangeNotifier {
   StreamSubscription<List<User>>? _allUsersSubscription;
   StreamSubscription<List<AppNotification>>? _notificationsSubscription;
 
+  // Public Getters
   User? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _currentUser != null;
@@ -42,11 +43,7 @@ class AppState with ChangeNotifier {
   }
 
   AppState({required this.authService, required this.firestoreService}) {
-    _authSubscription =
-        authService.user.listen(_onAuthStateChanged, onError: (error) {
-      _isLoading = false;
-      notifyListeners();
-    });
+    _authSubscription = authService.user.listen(_onAuthStateChanged);
   }
 
   void _onAuthStateChanged(User? user) {
@@ -59,29 +56,40 @@ class AppState with ChangeNotifier {
     _notificationsSubscription?.cancel();
 
     if (user != null) {
+      // General subscriptions for all users
       _hallsSubscription = firestoreService.getSeminarHalls().listen((halls) {
         _halls = halls;
         notifyListeners();
       });
-
-      _bookingsSubscription = firestoreService.getBookings().listen((bookings) {
-        _bookings = bookings;
-        notifyListeners();
-      });
-
-      if (user.role == 'admin') {
-        _allUsersSubscription = firestoreService.getAllUsers().listen((users) {
-          _allUsers = users;
-          notifyListeners();
-        });
-      }
-
       _notificationsSubscription =
           firestoreService.getNotifications(user.uid).listen((notifications) {
         _notifications = notifications;
         notifyListeners();
       });
+
+      // Role-based subscriptions
+      if (user.role == 'admin') {
+        // Admin ko saare bookings aur saare users milenge
+        _bookingsSubscription =
+            firestoreService.getAllBookings().listen((bookings) {
+          _bookings = bookings;
+          notifyListeners();
+        });
+        _allUsersSubscription = firestoreService.getAllUsers().listen((users) {
+          _allUsers = users;
+          notifyListeners();
+        });
+      } else {
+        // Faculty user ke liye
+        // Faculty user ko sirf unke apne bookings milenge
+        _bookingsSubscription =
+            firestoreService.getUserBookings(user.uid).listen((bookings) {
+          _bookings = bookings;
+          notifyListeners();
+        });
+      }
     } else {
+      // Logout par saara data clear karna
       _halls = [];
       _bookings = [];
       _allUsers = [];
@@ -101,67 +109,23 @@ class AppState with ChangeNotifier {
     await authService.signOut();
   }
 
+  /// Updates the current user's profile information.
   Future<void> updateUserProfile({
     required String name,
     required String department,
   }) async {
-    if (_currentUser == null) return;
+    if (_currentUser == null) return; // Safety check
     await firestoreService.updateUserProfile(_currentUser!.uid, {
       'name': name,
       'department': department,
     });
+    // The real-time stream will automatically update the UI, so no notifyListeners() is needed here.
   }
 
-  Future<String?> addUser({
-    required String name,
-    required String email,
-    required String employeeId,
-    required String department,
-    required String password,
-    required String role,
-  }) async {
-    return await authService.createUserByAdmin(
-      email: email,
-      password: password,
-      name: name,
-      department: department,
-      employeeId: employeeId,
-      role: role,
-    );
-  }
-
-  Future<void> deleteUser(String uid) async {
-    await firestoreService.deleteUser(uid);
-  }
-
-  Future<void> updateUserRole(String uid, String newRole) async {
-    await firestoreService.updateUserRole(uid, newRole);
-  }
-
-  Future<void> addHall({
-    required String name,
-    required int capacity,
-    required List<String> facilities,
-  }) async {
-    await firestoreService.addHall(
-      name: name,
-      capacity: capacity,
-      facilities: facilities,
-    );
-  }
-
-  Future<void> updateHall({
-    required String hallId,
-    required String name,
-    required int capacity,
-    required List<String> facilities,
-  }) async {
-    await firestoreService.updateHall(
-      hallId: hallId,
-      name: name,
-      capacity: capacity,
-      facilities: facilities,
-    );
+  /// Calls the service to securely change a user's role via a Cloud Function.
+  Future<String?> updateUserRole(String uid, String newRole) async {
+    // This forwards the call to the firestoreService, which calls the cloud function.
+    return await firestoreService.changeUserRole(uid: uid, newRole: newRole);
   }
 
   Future<void> submitBooking(Booking booking) async {
@@ -172,6 +136,7 @@ class AppState with ChangeNotifier {
     await firestoreService.cancelBooking(bookingId);
   }
 
+  /// Handles all admin actions on a booking (Approve, Reject, Re-allocate).
   Future<void> reviewBooking({
     required String bookingId,
     required String newStatus,
@@ -190,14 +155,12 @@ class AppState with ChangeNotifier {
     await firestoreService.updateBooking(bookingId, updateData);
   }
 
-  Future<void> markNotificationsAsRead() async {
+  void markNotificationsAsRead() {
     if (_currentUser == null) return;
-    final unreadIds = _notifications
-        .where((n) => n.userId == _currentUser!.uid && !n.isRead)
-        .map((n) => n.id)
-        .toList();
+    final unreadIds =
+        _notifications.where((n) => !n.isRead).map((n) => n.id).toList();
     if (unreadIds.isNotEmpty) {
-      await firestoreService.markNotificationsAsRead(unreadIds);
+      firestoreService.markNotificationsAsRead(unreadIds);
     }
   }
 
