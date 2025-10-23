@@ -4,8 +4,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:seminar_booking_app/models/booking.dart';
 import 'package:collection/collection.dart';
-import 'package:go_router/go_router.dart';
-
+import 'package:go_router/go_router.dart'; // <-- 1. ADD THIS IMPORT
 
 class BookedHallsScreen extends StatefulWidget {
   const BookedHallsScreen({super.key});
@@ -18,29 +17,24 @@ class _BookedHallsScreenState extends State<BookedHallsScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
-Map<DateTime, List<Booking>> _events = {};
+  Map<DateTime, List<Booking>> _events = {};
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // This method is correctly used to re-calculate data when the provider updates.
     final appState = context.watch<AppState>();
-    final approvedBookings = appState.bookings.where((b) => b.status == 'Approved').toList();
-    
-    // Group the bookings by date for the calendar's event loader.
+    final approvedBookings =
+        appState.bookings.where((b) => b.status == 'Approved').toList();
+
     _events = groupBy(approvedBookings, (Booking booking) {
-      // Normalize the date to UTC to avoid timezone issues with the calendar keys.
       return DateTime.parse(booking.date).toUtc();
     });
   }
-  
-  /// Helper function to get events for a specific day from the pre-calculated map.
   List<Booking> _getEventsForDay(DateTime day) {
-    // Normalize the lookup day to UTC as well to match the map keys.
     return _events[DateTime(day.year, day.month, day.day).toUtc()] ?? [];
   }
 
- @override
+  @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
 
@@ -90,7 +84,8 @@ Map<DateTime, List<Booking>> _events = {};
                         shape: BoxShape.circle,
                         color: Theme.of(context).primaryColor,
                       ),
-                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                      constraints:
+                          const BoxConstraints(minWidth: 18, minHeight: 18),
                       child: Center(
                         child: Text(
                           '${events.length}',
@@ -110,21 +105,31 @@ Map<DateTime, List<Booking>> _events = {};
           ),
           Expanded(
             child: eventsForSelectedDay.isEmpty
-              ? const Center(child: Text('No approved bookings for this day.'))
-              : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              itemCount: eventsForSelectedDay.length,
-              itemBuilder: (context, index) {
-                final event = eventsForSelectedDay[index];
-                return Card(
-                  child: ListTile(
-                    title: Text(event.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('${event.hall}\nTime: ${event.startTime} - ${event.endTime}'),
-                    leading: const Icon(Icons.event_available),
+                ? const Center(child: Text('No approved bookings for this day.'))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    itemCount: eventsForSelectedDay.length,
+                    itemBuilder: (context, index) {
+                      final event = eventsForSelectedDay[index];
+                      return Card(
+                        child: ListTile(
+                          title: Text(event.title,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(
+                              '${event.hall}\nTime: ${event.startTime} - ${event.endTime}'),
+                          leading: const Icon(Icons.event_available),
+                          // --- 2. ADD THESE LINES ---
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            // Navigate to the review screen
+                            context.go('/admin/review/${event.id}');
+                          },
+                          // --- END OF CHANGES ---
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),

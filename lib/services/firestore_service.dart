@@ -8,22 +8,20 @@ import 'package:seminar_booking_app/models/notification.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
- // USER METHODS
-  // ✅ FIX: Added an optional 'role' parameter.
   Future<void> createUser({
     required String uid,
     required String name,
     required String email,
     required String department,
     required String employeeId,
-    String role = 'Faculty', // Defaults to 'Faculty' for self-registration
+    String role = 'Faculty',
   }) {
     return _db.collection('users').doc(uid).set({
       'name': name,
       'email': email,
       'department': department,
       'employeeId': employeeId,
-      'role': role, // Uses the provided role
+      'role': role,
       'fcmTokens': [],
     });
   }
@@ -44,9 +42,7 @@ class FirestoreService {
     });
   }
 
-  /// Updates a user's profile information in Firestore.
   Future<void> updateUserProfile(String uid, Map<String, dynamic> data) {
-    // Ensure non-editable fields are not passed in the data map.
     data.remove('email');
     data.remove('employeeId');
     data.remove('role');
@@ -122,6 +118,13 @@ Stream<List<SeminarHall>> getSeminarHalls() {
       'facilities': facilities,
     });
   }
+
+  // --- THIS IS THE NEW METHOD YOU NEED TO ADD ---
+  /// Deletes a hall from the database.
+  Future<void> deleteHall(String hallId) {
+    return _db.collection('seminarHalls').doc(hallId).delete();
+  }
+  // --- END OF NEW METHOD ---
 
   // BOOKING METHODS
 

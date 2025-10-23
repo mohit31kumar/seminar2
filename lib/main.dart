@@ -6,14 +6,9 @@ import 'package:seminar_booking_app/services/auth_service.dart';
 import 'package:seminar_booking_app/services/firestore_service.dart';
 import 'package:seminar_booking_app/services/push_notification_service.dart';
 import 'firebase_options.dart';
-
-// Config and Providers
 import 'package:seminar_booking_app/config/theme.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
-
-// Widgets
 import 'package:seminar_booking_app/widgets/app_shell.dart';
-// Screens
 import 'package:seminar_booking_app/screens/auth/login_screen.dart';
 import 'package:seminar_booking_app/screens/auth/register_screen.dart';
 import 'package:seminar_booking_app/screens/shared/facilities_screen.dart';
@@ -35,6 +30,7 @@ import 'package:seminar_booking_app/screens/admin/booking_history_screen.dart';
 import 'package:seminar_booking_app/screens/admin/review_booking_screen.dart';
 import 'package:seminar_booking_app/models/booking.dart';
 import 'package:collection/collection.dart';
+import 'package:seminar_booking_app/screens/admin/manage_hub_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -139,12 +135,17 @@ GoRouter createRouter(AppState appState) {
             path: '/booking/details',
             builder: (context, state) {
               final booking = state.extra as Booking?;
-              if (booking == null) return const Center(child: Text('Error: Booking data not found.'));
+              if (booking == null) {
+                return const Center(
+                    child: Text('Error: Booking data not found.'));
+              }
               return BookingDetailsScreen(booking: booking);
             },
           ),
 
-          GoRoute(path: '/booking', builder: (context, state) => const BookingScreen()),
+          GoRoute(
+              path: '/booking',
+              builder: (context, state) => const BookingScreen()),
           GoRoute(
             path: '/booking/availability',
             builder: (context, state) {
@@ -176,22 +177,29 @@ GoRouter createRouter(AppState appState) {
           GoRoute(
               path: '/admin/home',
               builder: (context, state) => const AdminHomeScreen()),
-         GoRoute(
+          GoRoute(
             path: '/admin/review/:bookingId',
             builder: (context, state) {
               // 1. Get the booking ID from the URL path.
               final bookingId = state.pathParameters['bookingId'];
               if (bookingId == null) {
-                return const Scaffold(body: Center(child: Text('Error: Booking ID missing.')));
+                return const Scaffold(
+                    body: Center(child: Text('Error: Booking ID missing.')));
               }
 
               // 2. Look up the full, correctly-typed booking object from AppState using the ID.
-              final booking = context.read<AppState>().bookings.firstWhereOrNull((b) => b.id == bookingId);
+              final booking = context
+                  .read<AppState>()
+                  .bookings
+                  .firstWhereOrNull((b) => b.id == bookingId);
 
               if (booking == null) {
-                return Scaffold(body: Center(child: Text('Error: Booking with ID $bookingId not found.')));
+                return Scaffold(
+                    body: Center(
+                        child: Text(
+                            'Error: Booking with ID $bookingId not found.')));
               }
-              
+
               // 3. Pass the correct, fully-typed object to the screen.
               return ReviewBookingScreen(booking: booking);
             },
@@ -205,9 +213,13 @@ GoRouter createRouter(AppState appState) {
           GoRoute(
               path: '/admin/history',
               builder: (context, state) => const BookingHistoryScreen()),
+          
+          // --- 2. ADD THE NEW ROUTE HERE ---
           GoRoute(
-              path: '/admin/halls',
-              builder: (context, state) => const HallManagementScreen()),
+              path: '/admin/manage',
+              builder: (context, state) => const ManageHubScreen()),
+          // --- END OF NEW ROUTE ---
+
           GoRoute(
               path: '/admin/users',
               builder: (context, state) => const UserManagementScreen()),

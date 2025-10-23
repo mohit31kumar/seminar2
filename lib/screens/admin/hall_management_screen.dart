@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:seminar_booking_app/models/seminar_hall.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:seminar_booking_app/services/firestore_service.dart';
 import 'package:seminar_booking_app/widgets/admin/add_hall_dialog.dart';
@@ -8,10 +9,58 @@ import 'package:seminar_booking_app/widgets/admin/edit_hall_dialog.dart';
 class HallManagementScreen extends StatelessWidget {
   const HallManagementScreen({super.key});
 
+  void _showDeleteConfirmationDialog(
+    BuildContext context, FirestoreService firestoreService, SeminarHall hall) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm Deletion'),
+        content: Text(
+          'Are you sure you want to permanently delete ${hall.name}? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Cancel'),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete Hall'),
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              
+              try {
+                await firestoreService.deleteHall(hall.id);
+
+                if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Hall ${hall.name} deleted successfully.'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Error deleting hall: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+  /// --- END NEW ---
+
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
-    // Use context.read inside callbacks or when not listening for changes
     final firestoreService = context.read<FirestoreService>();
 
     // Security check
@@ -48,22 +97,39 @@ class HallManagementScreen extends StatelessWidget {
                     ),
                     value: hall.isAvailable,
                     onChanged: (bool value) {
-                      // Call the Firestore service to update the hall's status
                       firestoreService.updateHallAvailability(hall.id, value);
                     },
-                    secondary: IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      tooltip: 'Edit Hall Details',
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (BuildContext context) {
-                            return EditHallDialog(hall: hall);
+                    
+                    /// --- MODIFIED ---
+                    /// Changed to a Row to hold two buttons
+                    secondary: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined),
+                          tooltip: 'Edit Hall Details',
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (BuildContext context) {
+                                return EditHallDialog(hall: hall);
+                              },
+                            );
                           },
-                        );
-                      },
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.delete_outline_rounded,
+                              color: Colors.red.shade700),
+                          tooltip: 'Delete Hall',
+                          onPressed: () {
+                            _showDeleteConfirmationDialog(
+                                context, firestoreService, hall);
+                          },
+                        ),
+                      ],
                     ),
+                    /// --- END MODIFIED ---
                   ),
                 );
               },
@@ -72,7 +138,6 @@ class HallManagementScreen extends StatelessWidget {
         onPressed: () {
           showDialog(
             context: context,
-            // barrierDismissible is false to prevent closing while loading
             barrierDismissible: false,
             builder: (BuildContext context) {
               return const AddHallDialog();

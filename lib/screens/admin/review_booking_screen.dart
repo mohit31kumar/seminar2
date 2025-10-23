@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart'; // Make sure this is imported
 import 'package:provider/provider.dart';
 import 'package:seminar_booking_app/models/booking.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:seminar_booking_app/widgets/admin/reallocate_dialog.dart';
 import 'package:intl/intl.dart';
-import 'package:go_router/go_router.dart'; // <-- 1. IMPORT GO_ROUTER
 
 class ReviewBookingScreen extends StatelessWidget {
   final Booking booking;
@@ -44,14 +44,10 @@ class ReviewBookingScreen extends StatelessWidget {
                       rejectionReason: reasonController.text.trim(),
                     );
 
-                // --- START OF FIX ---
-                // We don't need to pop the dialog, context.go will handle it.
                 if (context.mounted) {
-                  // 2. USE context.go() to navigate to a valid screen
-                  // (Assuming '/admin/home' is your admin dashboard route)
-                  context.go('/admin/home'); 
+                  // Use context.go to safely navigate
+                  context.go('/admin/home');
                 }
-                // --- END OF FIX ---
               }
             },
             child: const Text('Confirm Rejection'),
@@ -61,11 +57,80 @@ class ReviewBookingScreen extends StatelessWidget {
     );
   }
 
-  /// Shows a dialog to find and select an alternative hall for the booking.
+  // --- THIS IS THE NEW, UPDATED FUNCTION ---
+  /// Finds available halls and shows the new ReallocateDialog
   void _showReallocateDialog(BuildContext context) {
+    final appState = context.read<AppState>();
+    final allBookings = appState.bookings;
+    final allHalls = appState.halls;
+
+    // --- 1. Find Available Halls (Logic moved from old dialog) ---
+    final conflictingStart =
+        DateTime.parse('${booking.date} ${booking.startTime}');
+    final conflictingEnd = DateTime.parse('${booking.date} ${booking.endTime}');
+
+    final availableHalls = allHalls.where((hall) {
+      // Exclude the currently conflicting hall
+      if (hall.name == booking.hall || !hall.isAvailable) {
+        return false;
+      }
+      // Check for overlap with other bookings
+      final hasOverlap = allBookings.any((b) {
+        if (b.hall != hall.name ||
+            (b.status != 'Approved' && b.status != 'Pending')) {
+          return false;
+        }
+        final existingStart = DateTime.parse('${b.date} ${b.startTime}');
+        final existingEnd = DateTime.parse('${b.date} ${b.endTime}');
+        return conflictingStart.isBefore(existingEnd) &&
+            conflictingEnd.isAfter(existingStart);
+      });
+      return !hasOverlap;
+    }).toList();
+
+    // Convert SeminarHall list to the List<Map> the dialog expects
+    final hallData = availableHalls.map((hall) {
+      return {'name': hall.name, 'capacity': hall.capacity};
+    }).toList();
+
+    // --- 2. Show the new dialog ---
     showDialog(
       context: context,
-      builder: (dialogContext) => ReallocateDialog(conflictingBooking: booking),
+      builder: (dialogContext) {
+        if (availableHalls.isEmpty) {
+          // Show a simple info dialog if no halls are free
+          return AlertDialog(
+            title: const Text('No Available Halls'),
+            content: const Text(
+                'No other halls are available during this time slot.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        }
+
+        return ReallocateDialog(
+          halls: hallData,
+          selectedHall: null,
+          // --- 3. Define the onReallocate callback ---
+          onReallocate: (String newHallName) async {
+            // This function runs when "Re-allocate & Approve" is pressed
+            await appState.reviewBooking(
+              bookingId: booking.id,
+              newStatus: 'Approved',
+              newHall: newHallName,
+            );
+
+            // Safely navigate home after
+            if (context.mounted) {
+              context.go('/admin/home');
+            }
+          },
+        );
+      },
     );
   }
 
@@ -145,12 +210,8 @@ class ReviewBookingScreen extends StatelessWidget {
                       await context.read<AppState>().reviewBooking(
                           bookingId: booking.id, newStatus: 'Approved');
 
-                      // --- START OF FIX ---
-                      if (context.mounted) {
-                        // 3. USE context.go() here as well
-                        context.go('/admin/home');
-                      }
-                      // --- END OF FIX ---
+                      // Use context.go to safely navigate
+                      if (context.mounted) context.go('/admin/home');
                     },
                   ),
                 ),

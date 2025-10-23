@@ -49,7 +49,7 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
         padding: const EdgeInsets.all(16.0),
         children: [
           DropdownButtonFormField<String>(
-            value: _selectedHallId,
+            initialValue: _selectedHallId,
             onChanged: (value) => setState(() => _selectedHallId = value!),
             items: halls.map((hall) => DropdownMenuItem(value: hall.id, child: Text(hall.name))).toList(),
             decoration: const InputDecoration(

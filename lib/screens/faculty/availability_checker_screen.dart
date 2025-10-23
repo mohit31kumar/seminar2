@@ -107,7 +107,7 @@ class _AvailabilityCheckerScreenState extends State<AvailabilityCheckerScreen> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: _selectedDuration,
+                      initialValue: _selectedDuration,
                       items: [1, 2, 3, 4, 5, 6, 7, 8].map((h) => DropdownMenuItem(value: h, child: Text('$h Hour(s)'))).toList(),
                       onChanged: (value) {
                         if (value != null) setState(() => _selectedDuration = value);
