@@ -4,6 +4,7 @@ import 'package:seminar_booking_app/models/booking.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:seminar_booking_app/widgets/admin/reallocate_dialog.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart'; // <-- 1. IMPORT GO_ROUTER
 
 class ReviewBookingScreen extends StatelessWidget {
   final Booking booking;
@@ -43,10 +44,14 @@ class ReviewBookingScreen extends StatelessWidget {
                       rejectionReason: reasonController.text.trim(),
                     );
 
-                if (dialogContext.mounted) {
-                  Navigator.pop(dialogContext); // Close the dialog
-                  Navigator.pop(context); // Close the review screen
+                // --- START OF FIX ---
+                // We don't need to pop the dialog, context.go will handle it.
+                if (context.mounted) {
+                  // 2. USE context.go() to navigate to a valid screen
+                  // (Assuming '/admin/home' is your admin dashboard route)
+                  context.go('/admin/home'); 
                 }
+                // --- END OF FIX ---
               }
             },
             child: const Text('Confirm Rejection'),
@@ -140,7 +145,12 @@ class ReviewBookingScreen extends StatelessWidget {
                       await context.read<AppState>().reviewBooking(
                           bookingId: booking.id, newStatus: 'Approved');
 
-                      if (context.mounted) Navigator.pop(context);
+                      // --- START OF FIX ---
+                      if (context.mounted) {
+                        // 3. USE context.go() here as well
+                        context.go('/admin/home');
+                      }
+                      // --- END OF FIX ---
                     },
                   ),
                 ),
