@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart'; // Make sure this is imported
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:seminar_booking_app/models/booking.dart';
+import 'package:seminar_booking_app/models/seminar_hall.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:seminar_booking_app/widgets/admin/reallocate_dialog.dart';
 import 'package:intl/intl.dart';
@@ -24,28 +25,41 @@ class ReviewBookingScreen extends StatelessWidget {
           child: TextFormField(
             controller: reasonController,
             autofocus: true,
-            decoration:
-                const InputDecoration(hintText: 'e.g., Conflicting VIP event'),
+            decoration: const InputDecoration(
+              hintText: 'e.g., Conflicting VIP event',
+            ),
             validator: (value) =>
-                value!.trim().isEmpty ? 'A reason is required' : null,
+            value!.trim().isEmpty ? 'A reason is required' : null,
           ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               if (formKey.currentState!.validate()) {
                 await context.read<AppState>().reviewBooking(
-                      bookingId: booking.id,
-                      newStatus: 'Rejected',
-                      rejectionReason: reasonController.text.trim(),
-                    );
+                  bookingId: booking.id,
+                  newStatus: 'Rejected',
+                  rejectionReason: reasonController.text.trim(),
+                );
+
+                // --- FIX: Close the dialog before navigating ---
+                if (Navigator.canPop(dialogContext)) {
+                  Navigator.pop(dialogContext);
+                }
 
                 if (context.mounted) {
-                  // Use context.go to safely navigate
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Booking has been rejected.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  await Future.delayed(const Duration(milliseconds: 800));
                   context.go('/admin/home');
                 }
               }
@@ -57,24 +71,22 @@ class ReviewBookingScreen extends StatelessWidget {
     );
   }
 
-  // --- THIS IS THE NEW, UPDATED FUNCTION ---
   /// Finds available halls and shows the new ReallocateDialog
   void _showReallocateDialog(BuildContext context) {
     final appState = context.read<AppState>();
     final allBookings = appState.bookings;
     final allHalls = appState.halls;
 
-    // --- 1. Find Available Halls (Logic moved from old dialog) ---
+    // --- 1. Find Available Halls ---
     final conflictingStart =
-        DateTime.parse('${booking.date} ${booking.startTime}');
-    final conflictingEnd = DateTime.parse('${booking.date} ${booking.endTime}');
+    DateTime.parse('${booking.date} ${booking.startTime}');
+    final conflictingEnd =
+    DateTime.parse('${booking.date} ${booking.endTime}');
 
     final availableHalls = allHalls.where((hall) {
-      // Exclude the currently conflicting hall
       if (hall.name == booking.hall || !hall.isAvailable) {
         return false;
       }
-      // Check for overlap with other bookings
       final hasOverlap = allBookings.any((b) {
         if (b.hall != hall.name ||
             (b.status != 'Approved' && b.status != 'Pending')) {
@@ -88,7 +100,6 @@ class ReviewBookingScreen extends StatelessWidget {
       return !hasOverlap;
     }).toList();
 
-    // Convert SeminarHall list to the List<Map> the dialog expects
     final hallData = availableHalls.map((hall) {
       return {'name': hall.name, 'capacity': hall.capacity};
     }).toList();
@@ -98,7 +109,6 @@ class ReviewBookingScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) {
         if (availableHalls.isEmpty) {
-          // Show a simple info dialog if no halls are free
           return AlertDialog(
             title: const Text('No Available Halls'),
             content: const Text(
@@ -117,15 +127,25 @@ class ReviewBookingScreen extends StatelessWidget {
           selectedHall: null,
           // --- 3. Define the onReallocate callback ---
           onReallocate: (String newHallName) async {
-            // This function runs when "Re-allocate & Approve" is pressed
             await appState.reviewBooking(
               bookingId: booking.id,
               newStatus: 'Approved',
               newHall: newHallName,
             );
 
-            // Safely navigate home after
+            // Close dialog and show confirmation
+            if (Navigator.canPop(dialogContext)) {
+              Navigator.pop(dialogContext);
+            }
+
             if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Hall has been reallocated to $newHallName.'),
+                  backgroundColor: Colors.blueAccent,
+                ),
+              );
+              await Future.delayed(const Duration(milliseconds: 800));
               context.go('/admin/home');
             }
           },
@@ -137,7 +157,7 @@ class ReviewBookingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final formattedDate =
-        DateFormat.yMMMMd().format(DateTime.parse(booking.date));
+    DateFormat.yMMMMd().format(DateTime.parse(booking.date));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Review Request')),
@@ -194,8 +214,9 @@ class ReviewBookingScreen extends StatelessWidget {
                     icon: const Icon(Icons.close),
                     label: const Text('Reject'),
                     style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red)),
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                    ),
                     onPressed: () => _showRejectionDialog(context),
                   ),
                 ),
@@ -204,14 +225,24 @@ class ReviewBookingScreen extends StatelessWidget {
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.check),
                     label: const Text('Approve'),
-                    style:
-                        ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                    ),
                     onPressed: () async {
-                      await context.read<AppState>().reviewBooking(
-                          bookingId: booking.id, newStatus: 'Approved');
+                      await context
+                          .read<AppState>()
+                          .reviewBooking(bookingId: booking.id, newStatus: 'Approved');
 
-                      // Use context.go to safely navigate
-                      if (context.mounted) context.go('/admin/home');
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Booking has been approved.'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                        await Future.delayed(const Duration(milliseconds: 800));
+                        context.go('/admin/home');
+                      }
                     },
                   ),
                 ),
@@ -255,8 +286,9 @@ class ReviewBookingScreen extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodySmall?.color),
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodySmall?.color,
+              ),
             ),
           ),
           Expanded(child: Text(value)),

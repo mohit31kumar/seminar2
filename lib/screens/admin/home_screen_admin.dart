@@ -2,18 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
+import 'package:intl/intl.dart';
+
 class AdminHomeScreen extends StatelessWidget {
   const AdminHomeScreen({super.key});
 
   /// Helper widget for the top stat cards (clickable)
   Widget _buildStatCard(
-    BuildContext context, {
-    required String title,
-    required String count,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
+      BuildContext context, {
+        required String title,
+        required String count,
+        required IconData icon,
+        required Color color,
+        required VoidCallback onTap,
+      }) {
     final theme = Theme.of(context);
     return Card(
       elevation: 2,
@@ -119,7 +121,7 @@ class AdminHomeScreen extends StatelessWidget {
     final now = DateTime.now();
 
     final pendingBookings =
-        allBookings.where((b) => b.status == 'Pending').toList();
+    allBookings.where((b) => b.status == 'Pending').toList();
     pendingBookings
         .sort((a, b) => DateTime.parse(b.date).compareTo(DateTime.parse(a.date)));
 
@@ -134,154 +136,171 @@ class AdminHomeScreen extends StatelessWidget {
     }).toList();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin Dashboard'),
-        centerTitle: false,
-      ),
+      // The AppBar is now in AppShell, so we don't need one here.
+      // appBar: AppBar(
+      //   title: const Text('Admin Dashboard'),
+      //   centerTitle: false,
+      // ),
       body: appState.isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          // Title
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: Text(
+              'Admin Dashboard',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          // --- 2. Stats Grid Section ---
+          GridView.count(
+            crossAxisCount: 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: (1 / 1),
+            children: [
+              _buildStatCard(
+                context,
+                title: 'Pending Requests',
+                count: pendingBookings.length.toString(),
+                icon: Icons.pending_actions_rounded,
+                color: Colors.orange.shade700,
+                onTap: () {
+                  context.go('/admin/history');
+                },
+              ),
+              _buildStatCard(
+                context,
+                title: 'Happening Today',
+                count: bookingsToday.length.toString(),
+                icon: Icons.event_available_rounded,
+                color: Colors.green.shade700,
+                onTap: () {
+                  // --- THIS IS THE FIX ---
+                  // The path is plural
+                  context.go('/admin/bookings');
+                },
+              ),
+              _buildStatCard(
+                context,
+                title: 'Total Halls',
+                count: totalHalls.toString(),
+                icon: Icons.meeting_room_rounded,
+                color: Colors.blue.shade700,
+                onTap: () {
+                  context.go('/admin/halls');
+                },
+              ),
+              _buildStatCard(
+                context,
+                title: 'Total Approved',
+                count: totalApprovedLifetime.toString(),
+                icon: Icons.check_circle_outline_rounded,
+                color: Colors.purple.shade700,
+                onTap: () {
+                  context.go('/admin/history');
+                },
+              ),
+            ],
+          ),
+
+          // --- 3. "Happening Today" Section ---
+          _buildSectionTitle(context, "Happening Today"),
+          bookingsToday.isEmpty
+              ? _buildEmptyState(
+            context,
+            'No Bookings Today',
+            'No seminars are scheduled for today.',
+          )
+              : Card(
+            child: Column(
               children: [
-                // --- 2. Stats Grid Section ---
-                GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  // Reverted aspect ratio
-                  childAspectRatio: (1 / 1),
-                  children: [
-                    _buildStatCard(
-                      context,
-                      title: 'Pending Requests',
-                      count: pendingBookings.length.toString(),
-                      icon: Icons.pending_actions_rounded,
-                      color: Colors.orange.shade700,
-                      onTap: () {
-                        context.go('/admin/history');
-                      },
-                    ),
-                    _buildStatCard(
-                      context,
-                      title: 'Happening Today',
-                      count: bookingsToday.length.toString(),
-                      icon: Icons.event_available_rounded,
-                      color: Colors.green.shade700,
-                      onTap: () {
-                        context.go('/admin/booking');
-                      },
-                    ),
-                    _buildStatCard(
-                      context,
-                      title: 'Total Halls',
-                      count: totalHalls.toString(),
-                      icon: Icons.meeting_room_rounded,
-                      color: Colors.blue.shade700,
-                      onTap: () {
-                        // This path seems to be correct for you
-                        context.go('/admin/halls');
-                      },
-                    ),
-                    // --- Reverted "Approved" Card ---
-                    _buildStatCard(
-                      context,
-                      title: 'Total Approved',
-                      count: totalApprovedLifetime.toString(),
-                      icon: Icons.check_circle_outline_rounded,
-                      color: Colors.purple.shade700,
-                      onTap: () {
-                        context.go('/admin/history');
-                      },
-                    ),
-                  ],
-                ),
-
-                // --- 3. "Happening Today" Section ---
-                _buildSectionTitle(context, "Happening Today"),
-                bookingsToday.isEmpty
-                    ? _buildEmptyState(
-                        context,
-                        'No Bookings Today',
-                        'No seminars are scheduled for today.',
-                      )
-                    : Card(
-                        child: Column(
-                          children: [
-                            ...bookingsToday.map((booking) {
-                              return ListTile(
-                                leading: const Icon(Icons.event_note_rounded),
-                                title: Text(booking.title,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold)),
-                                subtitle: Text(
-                                    '${booking.hall} (${booking.startTime} - ${booking.endTime})'),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () {
-                                  context.go('/admin/review/${booking.id}');
-                                },
-                              );
-                            }).toList(),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: TextButton(
-                                onPressed: () {
-                                  context.go('/admin/bookings');
-                                },
-                                child: const Text('View Full Schedule'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                _buildSectionTitle(context, 'Pending Requests'),
-                pendingBookings.isEmpty
-                    ? _buildEmptyState(
-                        context,
-                        'All Caught Up!',
-                        'No new requests to review.',
-                      )
-                    : Card(
-                        child: Column(
-                          children: pendingBookings.map((booking) {
-                            return ListTile(
-                              leading: const Icon(Icons.hourglass_top_rounded),
-                              title: Text(
-                                booking.title,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Text(
-                                'By: ${booking.requestedBy} for ${booking.hall}',
-                              ),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () {
-                                context.go('/admin/review/${booking.id}');
-                              },
-                            );
-                          }).toList(),
-                        ),
-                      ),
-
-                // --- 5. Quick Action Button to Full History ---
-                const SizedBox(height: 24),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.history_rounded),
-                  label: const Text('View Full Booking History'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                ...bookingsToday.map((booking) {
+                  return ListTile(
+                    leading: const Icon(Icons.event_note_rounded),
+                    title: Text(booking.title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold)),
+                    subtitle: Text(
+                        '${booking.hall} (${booking.startTime} - ${booking.endTime})'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      // This one is correct, it goes to the review page
+                      context.go('/admin/review/${booking.id}');
+                    },
+                  );
+                }).toList(),
+                // "View Full Schedule" Button
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextButton(
+                    onPressed: () {
+                      // --- THIS IS THE FIX ---
+                      // The path is plural
+                      context.go('/admin/bookings');
+                    },
+                    child: const Text('View Full Schedule'),
                   ),
-                  onPressed: () {
-                    context.go('/admin/history');
-                  },
                 ),
               ],
             ),
+          ),
+
+          // --- 4. "Pending Requests" Section ---
+          _buildSectionTitle(context, 'Pending Requests'),
+          pendingBookings.isEmpty
+              ? _buildEmptyState(
+            context,
+            'All Caught Up!',
+            'No new requests to review.',
+          )
+              : Card(
+            child: Column(
+              children: pendingBookings.map((booking) {
+                return ListTile(
+                  leading: const Icon(Icons.hourglass_top_rounded),
+                  title: Text(
+                    booking.title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    'By: ${booking.requestedBy} for ${booking.hall}',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    context.go('/admin/review/${booking.id}');
+                  },
+                );
+
+              }).toList(),
+            ),
+          ),
+
+          // --- 5. Quick Action Button to Full History ---
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.history_rounded),
+            label: const Text('View Full Booking History'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            onPressed: () {
+              context.go('/admin/history');
+            },
+          ),
+        ],
+      ),
     );
   }
 }

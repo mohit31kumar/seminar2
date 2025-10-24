@@ -6,11 +6,11 @@ class ReallocateDialog extends StatefulWidget {
   final Future<void> Function(String hallName) onReallocate;
 
   const ReallocateDialog({
-    Key? key,
+    super.key,
     required this.halls,
     required this.selectedHall,
     required this.onReallocate,
-  }) : super(key: key);
+  });
 
   @override
   State<ReallocateDialog> createState() => _ReallocateDialogState();

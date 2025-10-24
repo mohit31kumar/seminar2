@@ -5,9 +5,32 @@ import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:seminar_booking_app/services/auth_service.dart';
 import 'package:seminar_booking_app/widgets/admin/add_user_dialog.dart';
 
-
-class UserManagementScreen extends StatelessWidget {
+class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
+
+  @override
+  State<UserManagementScreen> createState() => _UserManagementScreenState();
+}
+
+class _UserManagementScreenState extends State<UserManagementScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   /// Shows a confirmation dialog before deleting a user.
   void _showDeleteConfirmationDialog(BuildContext context, User user) {
@@ -27,6 +50,7 @@ class UserManagementScreen extends StatelessWidget {
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Delete User'),
             onPressed: () async {
+              // Use read() here as we are in a callback
               final authService = context.read<AuthService>();
 
               try {
@@ -124,7 +148,6 @@ class UserManagementScreen extends StatelessWidget {
                     final appState = context.read<AppState>();
 
                     try {
-                      // ✅ updateUserRole returns Future<void>, so just await it.
                       await appState.updateUserRole(user.uid, selectedRole);
 
                       if (dialogContext.mounted) {
@@ -181,16 +204,32 @@ class UserManagementScreen extends StatelessWidget {
       );
     }
 
+    // --- FIX: Get the UID to compare for the 'self' check ---
     final currentAdminUid = currentUser.uid;
 
-    final users = appState.allUsers
-        .where((user) => user.uid != currentAdminUid)
-        .toList();
+    // 1. Filter all users based on search query
+    final filteredUsers = appState.allUsers.where((user) {
+      // --- FIX: REMOVED the line that excluded the current user ---
+      // if (user.uid == currentAdminUid) return false; // <-- This was the bug
+
+      // If search is empty, show all. Otherwise, filter.
+      if (_searchQuery.isEmpty) return true;
+
+      final nameMatch = user.name.toLowerCase().contains(_searchQuery);
+      final emailMatch = user.email.toLowerCase().contains(_searchQuery);
+      return nameMatch || emailMatch;
+    }).toList();
+
+    // --- FIX: Correctly separate users into two lists ---
+    final adminUsers =
+    filteredUsers.where((user) => user.role == 'admin').toList();
+    final facultyUsers =
+    filteredUsers.where((user) => user.role == 'Faculty').toList();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('User Management'),
-        centerTitle: true,
+        // No centerTitle, 'leading' back button will be added by AppShell
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: 'Add New User',
@@ -203,68 +242,154 @@ class UserManagementScreen extends StatelessWidget {
         },
         child: const Icon(Icons.add),
       ),
-      body: users.isEmpty
-          ? const Center(
+      body: Column(
+        children: [
+          // --- 1. SEARCH BAR ---
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search by name or email',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () => _searchController.clear(),
+                )
+                    : null,
+              ),
+            ),
+          ),
+
+          // --- 2. USER LISTS ---
+          Expanded(
+            child: (adminUsers.isEmpty && facultyUsers.isEmpty)
+                ? const Center(
               child: Text(
                 'No users found.',
                 style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
             )
-          : ListView.builder(
-              itemCount: users.length,
-              itemBuilder: (context, index) {
-                final user = users[index];
-                return Card(
-                  margin:
-                      const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      child:
-                          Text(user.name.isNotEmpty ? user.name[0] : '?'),
-                    ),
-                    title: Text(user.name),
-                    subtitle: Text(user.email),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        switch (value) {
-                          case 'reset_password':
-                            _sendPasswordReset(context, user);
-                            break;
-                          case 'delete_user':
-                            _showDeleteConfirmationDialog(context, user);
-                            break;
-                          case 'change_role':
-                            _showChangeRoleDialog(context, user);
-                            break;
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'reset_password',
-                          child: Text('Send Password Reset'),
-                        ),
-                        PopupMenuItem(
-                          value: 'change_role',
-                          child: Text(
-                            user.role == 'admin'
-                                ? 'Demote to Faculty'
-                                : 'Promote to Admin',
-                          ),
-                        ),
-                        const PopupMenuDivider(),
-                        const PopupMenuItem(
-                          value: 'delete_user',
-                          child: Text(
-                            'Delete User',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                : ListView(
+              padding: const EdgeInsets.all(8.0),
+              children: [
+                // --- Admin Section ---
+                _buildSectionTitle(context, 'Admins'),
+                if (adminUsers.isEmpty && _searchQuery.isNotEmpty)
+                  _buildEmptySection('No admins match your search.')
+                else if (adminUsers.isEmpty)
+                  _buildEmptySection('No admins found.')
+                else
+                  ...adminUsers.map((user) =>
+                  // --- FIX: Pass currentAdminUid ---
+                  _buildUserCard(context, user, currentAdminUid))
+                      .toList(),
+
+                // --- Faculty Section ---
+                _buildSectionTitle(context, 'Faculty'),
+                if (facultyUsers.isEmpty && _searchQuery.isNotEmpty)
+                  _buildEmptySection('No faculty match your search.')
+                else if (facultyUsers.isEmpty)
+                  _buildEmptySection('No faculty found.')
+                else
+                  ...facultyUsers.map((user) =>
+                  // --- FIX: Pass currentAdminUid ---
+                  _buildUserCard(context, user, currentAdminUid))
+                      .toList(),
+              ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Helper widget for the user list item
+  // --- FIX: Added currentAdminUid parameter ---
+  Widget _buildUserCard(BuildContext context, User user, String currentAdminUid) {
+    // --- FIX: Check if the card being built is for the current admin ---
+    final bool isSelf = user.uid == currentAdminUid;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          child: Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?'),
+        ),
+        title: Text(
+          user.name + (isSelf ? ' (You)' : ''), // Add '(You)' label
+          style: TextStyle(
+            fontWeight: isSelf ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        subtitle: Text(user.email),
+        // --- FIX: Disable the menu for the current admin's own card ---
+        trailing: isSelf
+            ? null // No menu for self
+            : PopupMenuButton<String>(
+          onSelected: (value) {
+            switch (value) {
+              case 'reset_password':
+                _sendPasswordReset(context, user);
+                break;
+              case 'delete_user':
+                _showDeleteConfirmationDialog(context, user);
+                break;
+              case 'change_role':
+                _showChangeRoleDialog(context, user);
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'reset_password',
+              child: Text('Send Password Reset'),
+            ),
+            PopupMenuItem(
+              value: 'change_role',
+              child: Text(
+                user.role == 'admin'
+                    ? 'Demote to Faculty'
+                    : 'Promote to Admin',
+              ),
+            ),
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'delete_user',
+              child: Text(
+                'Delete User',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Helper widget for section titles
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Text(
+        title,
+        style: Theme.of(context)
+            .textTheme
+            .titleLarge
+            ?.copyWith(fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  /// Helper widget for empty sections
+  Widget _buildEmptySection(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 14, color: Colors.grey),
+      ),
     );
   }
 }
