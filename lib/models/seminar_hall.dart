@@ -8,6 +8,11 @@ class SeminarHall {
   final int capacity;
   final List<String> facilities;
   final bool isAvailable; // Admin-controlled booking status
+  
+  // --- ADDED ---
+  final String imageUrl;    // URL for the hall's image
+  final String description; // A short description
+  // --- END ADDED ---
 
   SeminarHall({
     required this.id,
@@ -15,6 +20,10 @@ class SeminarHall {
     required this.capacity,
     required this.facilities,
     required this.isAvailable,
+    // --- ADDED ---
+    required this.imageUrl,
+    required this.description,
+    // --- END ADDED ---
   });
 
   /// Factory constructor to create a SeminarHall instance from a Firestore document.
@@ -28,6 +37,12 @@ class SeminarHall {
       capacity: data['capacity'] ?? 0,
       facilities: List<String>.from(data['facilities'] ?? []),
       isAvailable: data['isAvailable'] ?? true, // Defaults to true if not set
+      
+      // --- ADDED ---
+      // We default to an empty string. The UI will have to handle this.
+      imageUrl: data['imageUrl'] ?? '',
+      description: data['description'] ?? '',
+      // --- END ADDED ---
     );
   }
 }

@@ -9,6 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.6
+  image_picker: ^1.1.2  # Or the latest version
+  firebase_storage: ^11.7.7 # Or the latest version
+  path: ^1.9.0
 
   # Firebase
   firebase_core: ^2.32.0

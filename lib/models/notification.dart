@@ -12,6 +12,7 @@ class AppNotification {
   final String body;
   final DateTime timestamp;
   final bool isRead;
+  final String? bookingId;
 
   const AppNotification({
     required this.id,
@@ -20,6 +21,7 @@ class AppNotification {
     required this.body,
     required this.timestamp,
     this.isRead = false,
+    this.bookingId, 
   });
 
   /// Factory constructor to create an AppNotification from a Firestore document.
@@ -33,6 +35,10 @@ class AppNotification {
       // Convert Firestore Timestamp to DateTime
       timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isRead: data['isRead'] ?? false,
+      // --- ADDED ---
+      // This will be null if the 'bookingId' field doesn't exist
+      bookingId: data['bookingId'], 
+      // --- END ADDED ---
     );
   }
 
@@ -44,11 +50,12 @@ class AppNotification {
       'body': body,
       'timestamp': Timestamp.fromDate(timestamp),
       'isRead': isRead,
+      'bookingId': bookingId, // --- ADDED ---
     };
   }
 
   /// Creates a copy of the instance with updated values.
-  AppNotification copyWith({bool? isRead}) {
+  AppNotification copyWith({bool? isRead, String? bookingId}) { // --- UPDATED ---
     return AppNotification(
       id: id,
       userId: userId,
@@ -56,6 +63,7 @@ class AppNotification {
       body: body,
       timestamp: timestamp,
       isRead: isRead ?? this.isRead,
+      bookingId: bookingId ?? this.bookingId, // --- UPDATED ---
     );
   }
 }

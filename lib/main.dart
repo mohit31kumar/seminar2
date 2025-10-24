@@ -85,6 +85,8 @@ class _SeminarAppState extends State<SeminarApp> {
     final themeMode = context.select((AppState state) =>
         state.isDarkMode ? ThemeMode.dark : ThemeMode.light);
 
+    // --- REVERTED ---
+    // Removed the AnimatedSwitcher to prevent GlobalKey conflict
     return MaterialApp.router(
       title: 'Seminar Hall Booking',
       debugShowCheckedModeBanner: false,
@@ -93,6 +95,7 @@ class _SeminarAppState extends State<SeminarApp> {
       themeMode: themeMode,
       routerConfig: _router,
     );
+    // --- END REVERTED ---
   }
 }
 
@@ -132,12 +135,22 @@ GoRouter createRouter(AppState appState) {
               path: '/my-bookings',
               builder: (context, state) => const MyBookingsScreen()),
           GoRoute(
-            path: '/booking/details',
+            path: '/booking/details/:bookingId', // Uses path parameter
             builder: (context, state) {
-              final booking = state.extra as Booking?;
+              final bookingId = state.pathParameters['bookingId'];
+              if (bookingId == null) {
+                return const Scaffold(
+                    body: Center(child: Text('Error: Booking ID missing.')));
+              }
+              final booking = context
+                  .read<AppState>()
+                  .bookings
+                  .firstWhereOrNull((b) => b.id == bookingId);
               if (booking == null) {
-                return const Center(
-                    child: Text('Error: Booking data not found.'));
+                return Scaffold(
+                    body: Center(
+                        child: Text(
+                            'Error: Booking with ID $bookingId not found.')));
               }
               return BookingDetailsScreen(booking: booking);
             },
@@ -147,11 +160,22 @@ GoRouter createRouter(AppState appState) {
               path: '/booking',
               builder: (context, state) => const BookingScreen()),
           GoRoute(
-            path: '/booking/availability',
+            path: '/booking/availability/:hallId', // Uses path parameter
             builder: (context, state) {
-              final hall = state.extra as SeminarHall?;
+              final hallId = state.pathParameters['hallId'];
+              if (hallId == null) {
+                return const Scaffold(
+                    body: Center(child: Text('Error: Hall ID missing.')));
+              }
+              final hall = context
+                  .read<AppState>()
+                  .halls
+                  .firstWhereOrNull((h) => h.id == hallId);
               if (hall == null) {
-                return const Center(child: Text('Error: Hall not provided.'));
+                return Scaffold(
+                    body: Center(
+                        child: Text(
+                            'Error: Hall with ID $hallId not found.')));
               }
               return AvailabilityCheckerScreen(hall: hall);
             },
@@ -168,7 +192,7 @@ GoRouter createRouter(AppState appState) {
                 hall: extra['hall'],
                 date: extra['date'],
                 startTime: extra['startTime'],
-                duration: extra['duration'],
+                endTime: extra['endTime'],
               );
             },
           ),
@@ -180,27 +204,21 @@ GoRouter createRouter(AppState appState) {
           GoRoute(
             path: '/admin/review/:bookingId',
             builder: (context, state) {
-              // 1. Get the booking ID from the URL path.
               final bookingId = state.pathParameters['bookingId'];
               if (bookingId == null) {
                 return const Scaffold(
                     body: Center(child: Text('Error: Booking ID missing.')));
               }
-
-              // 2. Look up the full, correctly-typed booking object from AppState using the ID.
               final booking = context
                   .read<AppState>()
                   .bookings
                   .firstWhereOrNull((b) => b.id == bookingId);
-
               if (booking == null) {
                 return Scaffold(
                     body: Center(
                         child: Text(
                             'Error: Booking with ID $bookingId not found.')));
               }
-
-              // 3. Pass the correct, fully-typed object to the screen.
               return ReviewBookingScreen(booking: booking);
             },
           ),
@@ -214,11 +232,9 @@ GoRouter createRouter(AppState appState) {
               path: '/admin/history',
               builder: (context, state) => const BookingHistoryScreen()),
           
-          // --- 2. ADD THE NEW ROUTE HERE ---
           GoRoute(
               path: '/admin/manage',
               builder: (context, state) => const ManageHubScreen()),
-          // --- END OF NEW ROUTE ---
 
           GoRoute(
               path: '/admin/users',

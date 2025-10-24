@@ -3,9 +3,93 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
+import 'package:collection/collection.dart';
+import 'package:seminar_booking_app/models/notification.dart';
+import 'package:seminar_booking_app/services/firestore_service.dart';
 
-class FacultyHomeScreen extends StatelessWidget {
+// Converted to a StatefulWidget to handle the pop-up logic
+class FacultyHomeScreen extends StatefulWidget {
   const FacultyHomeScreen({super.key});
+
+  @override
+  State<FacultyHomeScreen> createState() => _FacultyHomeScreenState();
+}
+
+class _FacultyHomeScreenState extends State<FacultyHomeScreen> {
+  // This ensures we only try to show the dialog once, after the build.
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showWelcomeNotification(context);
+    });
+  }
+
+  /// Checks for the most recent unread notification and shows it as a pop-up.
+  void _showWelcomeNotification(BuildContext context) {
+    final appState = context.read<AppState>();
+    
+    // Find the newest unread notification.
+    final mostRecentUnread = appState.notifications
+        .firstWhereOrNull((n) => !n.isRead);
+
+    if (mostRecentUnread != null) {
+      // If we found one, show the dialog
+      _showWelcomeNotificationDialog(context, mostRecentUnread);
+    }
+  }
+
+  /// Displays the actual pop-up dialog for a notification.
+  void _showWelcomeNotificationDialog(
+      BuildContext context, AppNotification notification) {
+    final firestoreService = context.read<FirestoreService>();
+    final router = GoRouter.of(context);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // User must interact
+      builder: (dialogContext) {
+        
+        final title = notification.title;
+        final body = notification.body;
+        final hasBookingId =
+            notification.bookingId != null && notification.bookingId!.isNotEmpty;
+
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.info_outline,
+                  color: Theme.of(context).primaryColor),
+              const SizedBox(width: 10),
+              Expanded(child: Text(title)),
+            ],
+          ),
+          content: Text(body),
+          actions: [
+            TextButton(
+              child: const Text('Dismiss'),
+              onPressed: () {
+                // Mark this *one* notification as read and close the dialog
+                firestoreService.markNotificationsAsRead([notification.id]);
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            if (hasBookingId)
+              ElevatedButton(
+                child: const Text('View Details'),
+                onPressed: () {
+                  // Mark as read, close dialog, and navigate
+                  firestoreService.markNotificationsAsRead([notification.id]);
+                  Navigator.of(dialogContext).pop();
+                  // Use the bookingId to navigate
+                  router.go('/booking/details/${notification.bookingId}');
+                },
+              ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,8 +97,6 @@ class FacultyHomeScreen extends StatelessWidget {
     final currentUser = appState.currentUser;
     final theme = Theme.of(context);
 
-    // This screen should not be accessible without a logged-in user.
-    // The router's redirect handles this, but this is a fallback.
     if (currentUser == null) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -29,24 +111,30 @@ class FacultyHomeScreen extends StatelessWidget {
         myBookings.where((b) => b.status == 'Rejected').length;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Welcome, ${currentUser.name.split(' ').first}'),
-        centerTitle: false,
-        actions: [
-          // A quick-access button to the user's profile
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            tooltip: 'My Profile',
-            onPressed: () => context.go('/profile'),
-          ),
-        ],
-      ),
+      // --- APPBAR REMOVED ---
+      // This screen will now use the AppShell's AppBar,
+      // which has the consistent theme toggle.
+      // --- END REMOVED ---
+      
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Primary action button
+            // --- ADDED: PAGE TITLE ---
+            // Since the AppBar is gone, we add a title here.
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: Text(
+                'Welcome, ${currentUser.name.split(' ').first}',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ),
+            // --- END ADDED ---
+
+            // (The rest of your body content is unchanged)
             ElevatedButton.icon(
               icon: const Icon(Icons.add_circle_outline),
               label: const Text('Create New Booking'),
@@ -60,8 +148,6 @@ class FacultyHomeScreen extends StatelessWidget {
               onPressed: () => context.go('/booking'),
             ),
             const SizedBox(height: 24),
-
-            // Summary section
             Text('My Requests Summary',
                 style: theme.textTheme.titleLarge
                     ?.copyWith(fontWeight: FontWeight.bold)),
@@ -91,10 +177,11 @@ class FacultyHomeScreen extends StatelessWidget {
       ),
     );
   }
-
+  
+  // (All helper widgets _buildStatChip, _buildUpcomingEvents, etc. are unchanged)
+  // ...
   // --- Helper Widgets for Dashboard Sections ---
 
-  // Helper widget for the summary chips
   Widget _buildStatChip(
       BuildContext context, String label, int count, Color color) {
     return Column(
@@ -114,19 +201,16 @@ class FacultyHomeScreen extends StatelessWidget {
     );
   }
 
-  /// Builds the "Upcoming Events" section of the dashboard.
   Widget _buildUpcomingEvents(
       BuildContext context, List<dynamic> allMyBookings) {
     final theme = Theme.of(context);
     final today = DateUtils.dateOnly(DateTime.now());
 
-    // Filter for approved bookings that are today or in the future
     final upcoming = allMyBookings
         .where((b) =>
             b.status == 'Approved' && !DateTime.parse(b.date).isBefore(today))
         .toList();
 
-    // Sort by date and then by start time
     upcoming.sort((a, b) {
       int dateComp = a.date.compareTo(b.date);
       if (dateComp != 0) return dateComp;
@@ -150,7 +234,6 @@ class FacultyHomeScreen extends StatelessWidget {
           )
         else
           ...upcoming.take(4).map((booking) {
-            // Show up to 3 upcoming events
             final formattedDate =
                 DateFormat.yMMMMd().format(DateTime.parse(booking.date));
             return Card(
@@ -169,13 +252,10 @@ class FacultyHomeScreen extends StatelessWidget {
     );
   }
 
-  /// Builds the "Recent Activity" section of the dashboard.
   Widget _buildRecentActivity(
       BuildContext context, List<dynamic> allMyBookings) {
     final theme = Theme.of(context);
-
-    // Sort all bookings by their creation time (implicitly, since they are added to a list)
-    // For a real app, you'd sort by a 'createdAt' timestamp. Here we just reverse the list.
+    
     final recent = allMyBookings.reversed.toList();
 
     return Column(
@@ -195,7 +275,6 @@ class FacultyHomeScreen extends StatelessWidget {
           )
         else
           ...recent.take(4).map((booking) {
-            // Show up to 3 recent activities
             return Card(
               child: ListTile(
                 leading: _getStatusIcon(booking.status, theme),
@@ -211,7 +290,6 @@ class FacultyHomeScreen extends StatelessWidget {
     );
   }
 
-  /// Helper to get a status icon for the recent activity list.
   Widget _getStatusIcon(String status, ThemeData theme) {
     switch (status) {
       case 'Approved':

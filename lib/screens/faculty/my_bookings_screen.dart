@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart'; // <-- ADDED for date formatting
 import 'package:seminar_booking_app/models/booking.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:seminar_booking_app/services/firestore_service.dart';
@@ -8,7 +9,7 @@ import 'package:seminar_booking_app/services/firestore_service.dart';
 class MyBookingsScreen extends StatelessWidget {
   const MyBookingsScreen({super.key});
 
-  // --- Status Chip Builder ---
+  // --- Status Chip Builder (Unchanged) ---
   Widget _getStatusChip(String status) {
     Color chipColor;
     String chipText = status;
@@ -41,7 +42,7 @@ class MyBookingsScreen extends StatelessWidget {
     );
   }
 
-  // --- Cancel Confirmation Dialog ---
+  // --- Cancel Confirmation Dialog (Unchanged) ---
   void _showCancelConfirmationDialog(BuildContext context, Booking booking) {
     showDialog(
       context: context,
@@ -59,9 +60,7 @@ class MyBookingsScreen extends StatelessWidget {
               child: const Text('Yes, Cancel'),
               onPressed: () async {
                 await context.read<FirestoreService>().cancelBooking(booking.id);
-
                 if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Booking has been cancelled.')),
@@ -74,6 +73,102 @@ class MyBookingsScreen extends StatelessWidget {
       },
     );
   }
+  
+  // --- NEW: BOOKING CARD WIDGET ---
+  Widget _buildBookingCard(BuildContext context, Booking booking) {
+    final theme = Theme.of(context);
+    // Format the date and time
+    final formattedDate = DateFormat.yMMMMd().format(DateTime.parse(booking.date));
+    final timeRange = '${booking.startTime} - ${booking.endTime}';
+    
+    // Check if cancel button should be shown
+    final bool canCancel = booking.status == 'Pending' || booking.status == 'Approved';
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6.0),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        // --- UPDATED NAVIGATION ---
+        onTap: () => context.go('/booking/details/${booking.id}'),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Row 1: Title and Status
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      booking.title,
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  _getStatusChip(booking.status),
+                ],
+              ),
+              const SizedBox(height: 12),
+              
+              // Row 2: Hall and Time
+              _buildInfoRow(
+                context,
+                icon: Icons.business_outlined,
+                text: booking.hall,
+              ),
+              const SizedBox(height: 8),
+              _buildInfoRow(
+                context,
+                icon: Icons.calendar_today_outlined,
+                text: formattedDate,
+              ),
+              const SizedBox(height: 8),
+              _buildInfoRow(
+                context,
+                icon: Icons.access_time_outlined,
+                text: timeRange,
+              ),
+
+              // Row 3: Cancel Button (if applicable)
+              if (canCancel)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        icon: const Icon(Icons.cancel_outlined, size: 18),
+                        label: const Text('Cancel Request'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.error,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        onPressed: () => _showCancelConfirmationDialog(context, booking),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- NEW: Helper for icon rows ---
+  Widget _buildInfoRow(BuildContext context, {required IconData icon, required String text}) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Text(text, style: Theme.of(context).textTheme.bodyMedium),
+      ],
+    );
+  }
+  // --- END OF NEW WIDGETS ---
 
   @override
   Widget build(BuildContext context) {
@@ -97,11 +192,9 @@ class MyBookingsScreen extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-
           if (snapshot.hasError) {
             return Center(child: Text('An error occurred: ${snapshot.error}'));
           }
-
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(
               child: Padding(
@@ -116,6 +209,7 @@ class MyBookingsScreen extends StatelessWidget {
           }
 
           final myBookings = snapshot.data!;
+          // Sort by date (newest first)
           myBookings.sort((a, b) => DateTime.parse(b.date).compareTo(DateTime.parse(a.date)));
 
           return ListView.builder(
@@ -123,30 +217,8 @@ class MyBookingsScreen extends StatelessWidget {
             itemCount: myBookings.length,
             itemBuilder: (context, index) {
               final booking = myBookings[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 6.0),
-                child: ListTile(
-                  title: Text(
-                    booking.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text('${booking.hall}\nOn: ${booking.date}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _getStatusChip(booking.status),
-                      if (booking.status == 'Pending' || booking.status == 'Approved')
-                        IconButton(
-                          icon: const Icon(Icons.cancel_outlined),
-                          color: Colors.red.shade400,
-                          tooltip: 'Cancel Booking',
-                          onPressed: () => _showCancelConfirmationDialog(context, booking),
-                        ),
-                    ],
-                  ),
-                  onTap: () => context.go('/booking/details', extra: booking),
-                ),
-              );
+              // --- USE THE NEW CARD ---
+              return _buildBookingCard(context, booking);
             },
           );
         },

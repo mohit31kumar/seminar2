@@ -1,10 +1,10 @@
+import 'dart:io'; // <-- ADDED
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:seminar_booking_app/services/firestore_service.dart';
+import 'package:seminar_booking_app/services/storage_service.dart'; // <-- ADDED
 
-// A map of all available facilities.
-// This is the single source of truth.
-// Key: The name stored in Firestore. Value: The icon to display.
+// (kAvailableFacilities map is unchanged)
 const Map<String, IconData> kAvailableFacilities = {
   'Projector': Icons.videocam_rounded,
   'Wi-Fi': Icons.wifi_rounded,
@@ -27,37 +27,73 @@ class _AddHallDialogState extends State<AddHallDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _capacityController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  
+  // --- UPDATED ---
+  File? _imageFile; // To store the selected image file
+  // --- END UPDATED ---
 
-  // Use a Set to store the names of the selected facilities
   final Set<String> _selectedFacilities = {};
-
   bool _isLoading = false;
+
+  // --- ADDED ---
+  final StorageService _storageService = StorageService();
+  // --- END ADDED ---
 
   @override
   void dispose() {
     _nameController.dispose();
     _capacityController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
+
+  // --- ADDED ---
+  /// Picks an image from the gallery
+  Future<void> _pickImage() async {
+    final file = await _storageService.pickImage();
+    if (file != null) {
+      setState(() => _imageFile = file);
+    }
+  }
+  // --- END ADDED ---
 
   /// Handles the form submission
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+      if (_imageFile == null) { // --- ADDED validation
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select an image for the hall.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
+      setState(() => _isLoading = true);
 
       final firestoreService = context.read<FirestoreService>();
       final messenger = ScaffoldMessenger.of(context);
       final navigator = Navigator.of(context);
+      String? newHallId;
+      String? imageUrl;
 
       try {
-        await firestoreService.addHall(
+        // We need to create the hall document *first* to get its ID
+        final hallDoc = await firestoreService.createHallDocument(
           name: _nameController.text.trim(),
           capacity: int.parse(_capacityController.text.trim()),
-          // Pass the Set converted to a List
           facilities: _selectedFacilities.toList(),
+          description: _descriptionController.text.trim(),
         );
+        newHallId = hallDoc.id;
+
+        // Now, upload the image using the new hall's ID as the name
+        imageUrl = await _storageService.uploadHallImage(_imageFile!, newHallId);
+
+        // Finally, update the hall document with the new image URL
+        await firestoreService.updateHallImageUrl(newHallId, imageUrl);
 
         messenger.showSnackBar(
           SnackBar(
@@ -73,11 +109,17 @@ class _AddHallDialogState extends State<AddHallDialog> {
             backgroundColor: Colors.red,
           ),
         );
+        
+        // --- ADDED: Cleanup ---
+        // If the upload failed after the doc was created, delete the doc
+        if (newHallId != null && imageUrl == null) {
+          await firestoreService.deleteHall(newHallId);
+        }
+        // --- END ADDED ---
+        
       } finally {
         if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
+          setState(() => _isLoading = false);
         }
       }
     }
@@ -99,6 +141,47 @@ class _AddHallDialogState extends State<AddHallDialog> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // --- ADDED: Image Picker ---
+                    Center(
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          Container(
+                            height: 150,
+                            width: 200,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade400),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: _imageFile == null
+                                ? const Center(
+                                    child: Icon(
+                                      Icons.image_outlined,
+                                      size: 50,
+                                      color: Colors.grey,
+                                    ),
+                                  )
+                                : ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(
+                                      _imageFile!,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: FloatingActionButton.small(
+                              onPressed: _pickImage,
+                              tooltip: 'Pick Image',
+                              child: const Icon(Icons.edit),
+                            ),
+                          )
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // --- END ADDED ---
                     TextFormField(
                       controller: _nameController,
                       decoration: const InputDecoration(
@@ -129,6 +212,17 @@ class _AddHallDialogState extends State<AddHallDialog> {
                         return null;
                       },
                     ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                        hintText: 'e.g., Includes projector and AV system.',
+                        icon: Icon(Icons.description_outlined),
+                      ),
+                      maxLines: 2,
+                    ),
+                    // --- "Image URL" TextFormField REMOVED ---
                     const SizedBox(height: 24),
                     Text(
                       'Select Facilities',
@@ -136,11 +230,12 @@ class _AddHallDialogState extends State<AddHallDialog> {
                     ),
                     const Divider(height: 16),
                     
-                    // --- This is the new Chip selection UI ---
+                    // (Facility Chips are unchanged)
                     Wrap(
-                      spacing: 8.0, // Horizontal space between chips
-                      runSpacing: 4.0, // Vertical space between lines
+                      spacing: 8.0, 
+                      runSpacing: 4.0, 
                       children: kAvailableFacilities.entries.map((entry) {
+                        // ... (rest of chip code is unchanged)
                         final facilityName = entry.key;
                         final facilityIcon = entry.value;
                         final isSelected =

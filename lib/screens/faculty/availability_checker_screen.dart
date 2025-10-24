@@ -5,7 +5,6 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:seminar_booking_app/models/seminar_hall.dart';
 import 'package:seminar_booking_app/models/booking.dart';
-// ignore: unused_import
 import 'package:collection/collection.dart';
 
 class AvailabilityCheckerScreen extends StatefulWidget {
@@ -13,14 +12,22 @@ class AvailabilityCheckerScreen extends StatefulWidget {
   const AvailabilityCheckerScreen({super.key, required this.hall});
 
   @override
-  State<AvailabilityCheckerScreen> createState() => _AvailabilityCheckerScreenState();
+  State<AvailabilityCheckerScreen> createState() =>
+      _AvailabilityCheckerScreenState();
 }
 
 class _AvailabilityCheckerScreenState extends State<AvailabilityCheckerScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
+  
+  // --- UPDATED ---
+  // Store start and end TimeOfDay objects
   TimeOfDay? _selectedStartTime;
-  int _selectedDuration = 1; // Default duration is 1 hour
+  TimeOfDay? _selectedEndTime;
+
+  final int _openingHour = 8; // 8:00 AM
+  final int _closingHour = 18; // 6:00 PM (18:00)
+  String? _validationError;
 
   /// Gets a list of bookings for a specific day and hall.
   List<Booking> _getEventsForDay(DateTime day, List<Booking> allBookings) {
@@ -32,30 +39,112 @@ class _AvailabilityCheckerScreenState extends State<AvailabilityCheckerScreen> {
         .toList();
   }
 
-  /// Checks if the selected time slot is valid and does not conflict.
-  bool _isTimeSlotValid(List<Booking> todaysBookings) {
-    if (_selectedDay == null || _selectedStartTime == null) return false;
+  /// Helper function to parse "HH:mm" strings into a Duration.
+  Duration _parseTime(String time) {
+    try {
+      final parts = time.split(':');
+      final hours = int.parse(parts[0]);
+      final minutes = int.parse(parts[1]);
+      return Duration(hours: hours, minutes: minutes);
+    } catch (e) {
+      return Duration.zero;
+    }
+  }
 
-    final proposedStart = _selectedDay!.add(Duration(hours: _selectedStartTime!.hour, minutes: _selectedStartTime!.minute));
-    final proposedEnd = proposedStart.add(Duration(hours: _selectedDuration));
+  // --- NEW ---
+  /// Generates a list of hourly TimeOfDay objects for the Start Time dropdown.
+  List<TimeOfDay> _generateStartTimeSlots() {
+    List<TimeOfDay> slots = [];
+    // Allows starting up to the hour *before* closing time
+    for (int hour = _openingHour; hour < _closingHour; hour++) {
+      slots.add(TimeOfDay(hour: hour, minute: 0));
+    }
+    return slots;
+  }
 
+  // --- NEW ---
+  /// Generates a list of hourly TimeOfDay objects for the End Time dropdown.
+  List<TimeOfDay> _generateEndTimeSlots(TimeOfDay startTime) {
+    List<TimeOfDay> slots = [];
+    // Allows ending up to and *including* the closing time
+    for (int hour = startTime.hour + 1; hour <= _closingHour; hour++) {
+      slots.add(TimeOfDay(hour: hour, minute: 0));
+    }
+    return slots;
+  }
+
+  // --- UPDATED ---
+  /// Checks if the selected time range is valid and has no conflicts.
+  bool _isSlotRangeValid() {
+    if (_selectedDay == null || _selectedStartTime == null || _selectedEndTime == null) {
+      setState(() => _validationError = 'Please select a start and end time.');
+      return false;
+    }
+    
+    final allBookings = context.read<AppState>().bookings;
+    final todaysBookings = _getEventsForDay(_selectedDay!, allBookings);
+
+    final proposedStart = _selectedDay!
+        .add(Duration(hours: _selectedStartTime!.hour, minutes: _selectedStartTime!.minute));
+    final proposedEnd = _selectedDay!
+        .add(Duration(hours: _selectedEndTime!.hour, minutes: _selectedEndTime!.minute));
+
+    // Check for conflicts
     for (final booking in todaysBookings) {
-      final existingStart = DateTime.parse(booking.date).add(Duration(hours: int.parse(booking.startTime.split(':')[0])));
-      final existingEnd = DateTime.parse(booking.date).add(Duration(hours: int.parse(booking.endTime.split(':')[0])));
-      
-      // Check for overlap
-      if (proposedStart.isBefore(existingEnd) && proposedEnd.isAfter(existingStart)) {
+      final existingStart =
+          DateTime.parse(booking.date).add(_parseTime(booking.startTime));
+      final existingEnd =
+          DateTime.parse(booking.date).add(_parseTime(booking.endTime));
+
+      if (proposedStart.isBefore(existingEnd) &&
+          proposedEnd.isAfter(existingStart)) {
+        setState(() => _validationError = 'This time range conflicts with an existing booking.');
         return false; // Conflict found
       }
     }
+    
+    setState(() => _validationError = null);
     return true; // No conflicts
   }
+
+  // --- NEW ---
+  /// Formats the time for the dropdown labels, e.g., "11:00"
+  String _formatTime(TimeOfDay time) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+  
+  // --- NEW ---
+  /// Formats the end time label as shown in your screenshot, e.g., "10:00 - 11:00"
+  String _formatEndTimeLabel(TimeOfDay time) {
+    final endHour = time.hour.toString().padLeft(2, '0');
+    final startHour = (time.hour - 1).toString().padLeft(2, '0');
+    return '$startHour:00 - $endHour:00';
+  }
+
+  void _onConfirmAndRequest() {
+    if (_isSlotRangeValid()) {
+      // Proceed to the booking form
+      context.go('/booking/form', extra: {
+        'hall': widget.hall,
+        'date': _selectedDay!,
+        'startTime': _selectedStartTime!,
+        'endTime': _selectedEndTime!, // Pass End Time
+      });
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
     final allBookings = context.watch<AppState>().bookings;
-    final todaysBookings = _selectedDay != null ? _getEventsForDay(_selectedDay!, allBookings) : <Booking>[];
-    final isSlotValid = _isTimeSlotValid(todaysBookings);
+
+    // Generate time slots for the dropdowns
+    final startTimeSlots = _generateStartTimeSlots();
+    final endTimeSlots = _selectedStartTime != null 
+                         ? _generateEndTimeSlots(_selectedStartTime!) 
+                         : <TimeOfDay>[];
 
     return Scaffold(
       appBar: AppBar(title: Text('Select Date for ${widget.hall.name}')),
@@ -64,88 +153,119 @@ class _AvailabilityCheckerScreenState extends State<AvailabilityCheckerScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Calendar View
+            // --- CALENDAR VIEW ---
+            Text('1. Select a Date', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
             Card(
               child: TableCalendar<Booking>(
-                firstDay: DateTime.now(),
+                firstDay: DateTime.now().subtract(const Duration(days: 1)),
                 lastDay: DateTime.now().add(const Duration(days: 365)),
                 focusedDay: _focusedDay,
                 selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                 onDaySelected: (selectedDay, focusedDay) {
+                  if (selectedDay.isBefore(DateUtils.dateOnly(DateTime.now()))) {
+                    return;
+                  }
                   setState(() {
                     _selectedDay = selectedDay;
                     _focusedDay = focusedDay;
-                    _selectedStartTime = null; // Reset time when day changes
+                    // Reset times when day changes
+                    _selectedStartTime = null; 
+                    _selectedEndTime = null;
+                    _validationError = null;
                   });
+                },
+                enabledDayPredicate: (day) {
+                  return !day.isBefore(DateUtils.dateOnly(DateTime.now()));
                 },
                 eventLoader: (day) => _getEventsForDay(day, allBookings),
               ),
             ),
             const SizedBox(height: 24),
 
-            // Time Slot Selection (only appears after selecting a day)
+            // --- TIME SELECTION ---
+            // This section only appears after a day is selected
             if (_selectedDay != null) ...[
-              const Divider(),
+              Text('2. Select a Time Range', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 16),
-              Text('Select Start Time & Duration', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.access_time),
-                      label: Text(_selectedStartTime?.format(context) ?? 'Choose Start Time'),
-                      onPressed: () async {
-                        final time = await showTimePicker(
-                          context: context, 
-                          initialTime: const TimeOfDay(hour: 9, minute: 0),
-                        );
-                        if (time != null) setState(() => _selectedStartTime = time);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: DropdownButtonFormField<int>(
-                      initialValue: _selectedDuration,
-                      items: [1, 2, 3, 4, 5, 6, 7, 8].map((h) => DropdownMenuItem(value: h, child: Text('$h Hour(s)'))).toList(),
-                      onChanged: (value) {
-                        if (value != null) setState(() => _selectedDuration = value);
-                      },
-                      decoration: const InputDecoration(labelText: 'Duration', border: OutlineInputBorder()),
-                    ),
-                  ),
-                ],
+              
+              // --- START TIME DROPDOWN ---
+              DropdownButtonFormField<TimeOfDay>(
+                initialValue: _selectedStartTime,
+                hint: const Text('Select start time'),
+                decoration: const InputDecoration(
+                  labelText: 'Start Time',
+                  border: OutlineInputBorder(),
+                ),
+                items: startTimeSlots.map((time) {
+                  return DropdownMenuItem<TimeOfDay>(
+                    value: time,
+                    child: Text(_formatTime(time)),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedStartTime = value;
+                    // Reset end time and error if start time changes
+                    _selectedEndTime = null;
+                    _validationError = null;
+                  });
+                },
               ),
-              // Validation message
-              if (_selectedStartTime != null && !isSlotValid)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8.0),
+              const SizedBox(height: 16),
+
+              // --- END TIME DROPDOWN ---
+              DropdownButtonFormField<TimeOfDay>(
+                initialValue: _selectedEndTime,
+                hint: const Text('Select end time'),
+                decoration: const InputDecoration(
+                  labelText: 'End Time',
+                  border: OutlineInputBorder(),
+                ),
+                // Disable dropdown if start time isn't selected
+                disabledHint: _selectedStartTime == null ? const Text('Select a start time first') : null,
+                items: _selectedStartTime == null ? [] : endTimeSlots.map((time) {
+                  return DropdownMenuItem<TimeOfDay>(
+                    value: time,
+                    // Use the label format from your screenshot
+                    child: Text(_formatEndTimeLabel(time)),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedEndTime = value;
+                    _validationError = null; // Clear error on new selection
+                  });
+                },
+              ),
+              const SizedBox(height: 24),
+              
+              // --- CONFIRM BUTTON ---
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                onPressed: _selectedDay == null || _selectedStartTime == null || _selectedEndTime == null
+                  ? null // Disable button if times aren't selected
+                  : _onConfirmAndRequest,
+                child: const Text('Confirm & Request'),
+              ),
+
+              // --- VALIDATION ERROR ---
+              if (_validationError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16.0),
                   child: Text(
-                    'This time slot conflicts with an existing booking. Please choose a different time or duration.',
-                    style: TextStyle(color: Colors.red),
+                    _validationError!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    textAlign: TextAlign.center,
                   ),
                 ),
             ],
           ],
         ),
       ),
-      // Proceed button is enabled only when a valid time slot is selected
-      floatingActionButton: (_selectedDay != null && _selectedStartTime != null && isSlotValid)
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                // Navigate to the final booking form, passing all data as 'extra'
-                context.go('/booking/form', extra: {
-                  'hall': widget.hall,
-                  'date': _selectedDay!,
-                  'startTime': _selectedStartTime!,
-                  'duration': _selectedDuration,
-                });
-              },
-              label: const Text('Proceed'),
-              icon: const Icon(Icons.arrow_forward),
-            )
-          : null,
     );
   }
 }

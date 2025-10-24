@@ -24,7 +24,6 @@ class AppShell extends StatelessWidget {
 
     // Check if the current location is one of the sub-pages
     final bool isSubPage = isAdmin && adminSubPages.contains(location);
-    // --- END OF NEW LOGIC ---
 
     if (appState.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -62,26 +61,20 @@ class AppShell extends StatelessWidget {
               context.read<AppState>().markNotificationsAsRead();
             },
           ),
-          // User profile and logout menu
+          
+          // --- UPDATED ---
+          // Replaced the PopupMenuButton with a direct IconButton
           if (currentUser != null)
-            PopupMenuButton<String>(
+            IconButton(
               icon: const Icon(Icons.account_circle_outlined),
-              tooltip: 'Profile & Settings',
-              onSelected: (value) {
-                if (value == 'profile') context.go('/profile');
-                if (value == 'logout') context.read<AppState>().logout();
+              tooltip: 'My Profile',
+              onPressed: () {
+                // Navigate directly to the profile screen
+                context.go('/profile');
               },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'profile',
-                  child: Text(currentUser.name),
-                ),
-                const PopupMenuItem(
-                  value: 'logout',
-                  child: Text('Logout'),
-                ),
-              ],
             ),
+          // --- END UPDATED ---
+            
         ],
       ),
       body: child, // The actual screen content is rendered here

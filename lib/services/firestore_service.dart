@@ -8,6 +8,8 @@ import 'package:seminar_booking_app/models/notification.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // (User methods are unchanged)
+  // ...
   Future<void> createUser({
     required String uid,
     required String name,
@@ -77,12 +79,11 @@ class FirestoreService {
     return _db.collection('users').doc(uid).update({'role': newRole});
   }
 
-  // HALL METHODS
-Stream<List<SeminarHall>> getSeminarHalls() {
+  // --- HALL METHODS (UPDATED) ---
+  Stream<List<SeminarHall>> getSeminarHalls() {
     return _db.collection('seminarHalls').snapshots().map((snapshot) =>
         snapshot.docs.map((doc) => SeminarHall.fromFirestore(doc)).toList());
   }
-
 
   Future<void> updateHallAvailability(String hallId, bool isAvailable) {
     return _db
@@ -91,50 +92,65 @@ Stream<List<SeminarHall>> getSeminarHalls() {
         .update({'isAvailable': isAvailable});
   }
 
-  /// Creates a new document in the 'seminarHalls' collection.
-  Future<void> addHall({
+  /// Creates a new hall document *without* an imageUrl.
+  /// Returns the DocumentReference of the new hall.
+  Future<DocumentReference> createHallDocument({
     required String name,
     required int capacity,
     required List<String> facilities,
+    required String description,
   }) {
     return _db.collection('seminarHalls').add({
       'name': name,
       'capacity': capacity,
       'facilities': facilities,
-      'isAvailable': true, // New halls are set to 'available' by default
+      'description': description,
+      'isAvailable': true,
+      'imageUrl': '', // Set to empty string initially
     });
   }
 
+  /// Adds or updates the imageUrl for a hall document.
+  Future<void> updateHallImageUrl(String hallId, String imageUrl) {
+    return _db
+        .collection('seminarHalls')
+        .doc(hallId)
+        .update({'imageUrl': imageUrl});
+  }
+
+
   /// Updates an existing document in the 'seminarHalls' collection.
+  /// This is used for the "Edit" dialog.
   Future<void> updateHall({
     required String hallId,
     required String name,
     required int capacity,
     required List<String> facilities,
+    required String description,
+    required String imageUrl, // The Edit dialog will pass the new or old URL
   }) {
     return _db.collection('seminarHalls').doc(hallId).update({
       'name': name,
       'capacity': capacity,
       'facilities': facilities,
+      'description': description,
+      'imageUrl': imageUrl,
     });
   }
 
-  // --- THIS IS THE NEW METHOD YOU NEED TO ADD ---
   /// Deletes a hall from the database.
   Future<void> deleteHall(String hallId) {
+    // TODO: Also delete the hall's image from Firebase Storage
     return _db.collection('seminarHalls').doc(hallId).delete();
   }
-  // --- END OF NEW METHOD ---
 
-  // BOOKING METHODS
-
-/// Saare bookings ka stream fetch karta hai. Sirf ADMIN ke liye.
+  // (Booking methods are unchanged)
+  // ...
   Stream<List<Booking>> getAllBookings() {
     return _db.collection('bookings').snapshots().map((snapshot) =>
         snapshot.docs.map((doc) => Booking.fromFirestore(doc)).toList());
   }
 
-  /// Ek specific user ke bookings ka stream fetch karta hai. FACULTY ke liye.
   Stream<List<Booking>> getUserBookings(String uid) {
     return _db
         .collection('bookings')
@@ -144,7 +160,7 @@ Stream<List<SeminarHall>> getSeminarHalls() {
             snapshot.docs.map((doc) => Booking.fromFirestore(doc)).toList());
   }
 
- Future<void> addBooking(Booking booking) {
+  Future<void> addBooking(Booking booking) {
     return _db.collection('bookings').add(booking.toJson());
   }
 
@@ -153,12 +169,14 @@ Stream<List<SeminarHall>> getSeminarHalls() {
   }
 
   Future<void> cancelBooking(String bookingId) {
-    return _db.collection('bookings').doc(bookingId).update({'status': 'Cancelled'});
+    return _db
+        .collection('bookings')
+        .doc(bookingId)
+        .update({'status': 'Cancelled'});
   }
 
-  // NOTIFICATION METHODS
-
-  /// Gets a stream of notifications for a specific user.
+  // (Notification methods are unchanged)
+  // ...
   Stream<List<AppNotification>> getNotifications(String userId) {
     return _db
         .collection('notifications')
@@ -171,7 +189,6 @@ Stream<List<SeminarHall>> getSeminarHalls() {
             .toList());
   }
 
-  /// Sets the 'isRead' flag to true for a list of notification IDs.
   Future<void> markNotificationsAsRead(List<String> notificationIds) async {
     final batch = _db.batch();
     for (final id in notificationIds) {
@@ -181,13 +198,13 @@ Stream<List<SeminarHall>> getSeminarHalls() {
     await batch.commit();
   }
 
-   /// Calls a cloud function to securely change a user's role.
   Future<String?> changeUserRole({
     required String uid,
     required String newRole,
   }) async {
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('changeUserRole');
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('changeUserRole');
       await callable.call(<String, dynamic>{
         'uid': uid,
         'newRole': newRole,

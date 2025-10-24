@@ -10,14 +10,17 @@ class BookingFormScreen extends StatefulWidget {
   final SeminarHall hall;
   final DateTime date;
   final TimeOfDay startTime;
-  final int duration;
+  
+  // --- UPDATED ---
+  // Replaced 'duration' with 'endTime'
+  final TimeOfDay endTime; 
 
   const BookingFormScreen({
     super.key,
     required this.hall,
     required this.date,
     required this.startTime,
-    required this.duration,
+    required this.endTime, // Use endTime
   });
 
   @override
@@ -27,7 +30,7 @@ class BookingFormScreen extends StatefulWidget {
 class _BookingFormScreenState extends State<BookingFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _purposeController = TextEditingController(); // <-- ADDED
+  final _purposeController = TextEditingController();
   final _attendeesController = TextEditingController();
   final _requirementsController = TextEditingController();
   bool _isLoading = false;
@@ -47,17 +50,20 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         return;
       }
       
-      final startDateTime = DateTime(widget.date.year, widget.date.month, widget.date.day, widget.startTime.hour, widget.startTime.minute);
-      final endDateTime = startDateTime.add(Duration(hours: widget.duration));
+      // --- UPDATED ---
+      // No need to calculate end time; it's passed directly.
+      // We just need to format the TimeOfDay objects.
+      final formattedStartTime = '${widget.startTime.hour.toString().padLeft(2, '0')}:${widget.startTime.minute.toString().padLeft(2, '0')}';
+      final formattedEndTime = '${widget.endTime.hour.toString().padLeft(2, '0')}:${widget.endTime.minute.toString().padLeft(2, '0')}';
 
       final newBooking = Booking(
         id: '',
         title: _titleController.text.trim(),
-        purpose: _purposeController.text.trim(), // <-- ADDED
+        purpose: _purposeController.text.trim(),
         hall: widget.hall.name,
         date: DateFormat('yyyy-MM-dd').format(widget.date),
-        startTime: DateFormat('HH:mm').format(startDateTime),
-        endTime: DateFormat('HH:mm').format(endDateTime),
+        startTime: formattedStartTime, // Use formatted start time
+        endTime: formattedEndTime,   // Use formatted end time
         status: 'Pending',
         requestedBy: currentUser.name,
         requesterId: currentUser.uid,
@@ -71,9 +77,16 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking request has been submitted successfully!')));
+        // Go to 'my-bookings' to see the new pending request
         context.go('/my-bookings');
       }
     }
+  }
+  
+  // --- UPDATED ---
+  // Helper to format TimeOfDay to a readable string (e.g., "11:00")
+  String _formatTime(TimeOfDay time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -87,11 +100,11 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // This summary card will now show the start and end time
               _buildSummaryCard(),
               const SizedBox(height: 24),
               TextFormField(controller: _titleController, decoration: const InputDecoration(labelText: 'Event Title', border: OutlineInputBorder()), validator: (v) => v!.isEmpty ? 'This field is required' : null),
               const SizedBox(height: 16),
-              // ✅ FIX: Added the TextFormField for Purpose
               TextFormField(controller: _purposeController, decoration: const InputDecoration(labelText: 'Purpose of Event', border: OutlineInputBorder()), maxLines: 3, validator: (v) => v!.isEmpty ? 'This field is required' : null),
               const SizedBox(height: 16),
               TextFormField(
@@ -99,7 +112,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(labelText: 'Expected Attendees (Max: ${widget.hall.capacity})', border: const OutlineInputBorder()),
                 validator: (v) {
-                  if (v == null || v.isEmpty) return 'This field is required';
+                  if (v == null || v.isEmpty) return 'This field isD required';
                   final count = int.tryParse(v);
                   if (count == null) return 'Please enter a valid number';
                   if (count <= 0) return 'Attendees must be greater than zero';
@@ -125,7 +138,11 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
 
   Widget _buildSummaryCard() {
     final formattedDate = DateFormat.yMMMMd().format(widget.date);
-    final formattedTime = widget.startTime.format(context);
+    
+    // --- UPDATED ---
+    // Format both start and end times
+    final formattedStartTime = _formatTime(widget.startTime);
+    final formattedEndTime = _formatTime(widget.endTime);
 
     return Card(
       elevation: 0,
@@ -139,7 +156,9 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
             const SizedBox(height: 8),
             _buildSummaryRow(icon: Icons.calendar_today_outlined, text: formattedDate),
             const SizedBox(height: 8),
-            _buildSummaryRow(icon: Icons.access_time_outlined, text: 'Starting at $formattedTime for ${widget.duration} hour(s)'),
+            // --- UPDATED ---
+            // Display the time range
+            _buildSummaryRow(icon: Icons.access_time_outlined, text: 'Time: $formattedStartTime - $formattedEndTime'),
           ],
         ),
       ),

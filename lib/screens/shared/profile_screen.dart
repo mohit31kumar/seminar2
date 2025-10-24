@@ -63,8 +63,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     final currentUser = appState.currentUser;
-    // ignore: unused_local_variable
-    final theme = Theme.of(context);
 
     if (currentUser == null) {
       return const Scaffold(
@@ -76,6 +74,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('My Profile'),
         actions: [
+          // --- ADDED: THEME TOGGLE ---
+          IconButton(
+            icon: Icon(appState.isDarkMode
+                ? Icons.light_mode_outlined
+                : Icons.dark_mode_outlined),
+            tooltip: 'Toggle Theme',
+            onPressed: () {
+              context.read<AppState>().toggleTheme();
+            },
+          ),
+          // --- END ADDED ---
+          
           // Toggle between Edit and Save buttons
           if (!_isEditing)
             IconButton(
@@ -93,57 +103,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                enabled: _isEditing,
-                decoration: const InputDecoration(
-                  labelText: 'Full Name',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-                validator: (v) => v!.isEmpty ? 'Name cannot be empty' : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // --- FORM FOR EDITABLE FIELDS ---
+            Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    enabled: _isEditing,
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                    validator: (v) =>
+                        v!.isEmpty ? 'Name cannot be empty' : null,
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _departmentController,
+                    enabled: _isEditing,
+                    decoration: const InputDecoration(
+                      labelText: 'Department',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.business_center_outlined),
+                    ),
+                    validator: (v) =>
+                        v!.isEmpty ? 'Department cannot be empty' : null,
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
-              TextFormField(
-                controller: _departmentController,
-                enabled: _isEditing,
-                decoration: const InputDecoration(
-                  labelText: 'Department',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.business_center_outlined),
-                ),
-                validator: (v) =>
-                    v!.isEmpty ? 'Department cannot be empty' : null,
+            ),
+            const SizedBox(height: 20),
+
+            // --- READ-ONLY FIELDS ---
+            TextFormField(
+              initialValue: currentUser.email,
+              readOnly: true,
+              decoration: const InputDecoration(
+                labelText: 'Email Address (Read-Only)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email_outlined),
               ),
-              const SizedBox(height: 20),
-              // --- Read-Only Fields ---
-              TextFormField(
-                initialValue: currentUser.email,
-                readOnly: true,
-                decoration: const InputDecoration(
-                  labelText: 'Email Address (Read-Only)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.email_outlined),
-                ),
+            ),
+            const SizedBox(height: 20),
+            TextFormField(
+              initialValue: currentUser.employeeId,
+              readOnly: true,
+              decoration: const InputDecoration(
+                labelText: 'Employee ID (Read-Only)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.badge_outlined),
               ),
-              const SizedBox(height: 20),
-              TextFormField(
-                initialValue: currentUser.employeeId,
-                readOnly: true,
-                decoration: const InputDecoration(
-                  labelText: 'Employee ID (Read-Only)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.badge_outlined),
-                ),
-              ),
-              const SizedBox(height: 24),
-              if (_isEditing)
-                OutlinedButton(
+            ),
+            
+            // --- CANCEL BUTTON (Only shows when editing) ---
+            if (_isEditing)
+              Padding(
+                padding: const EdgeInsets.only(top: 24.0),
+                child: OutlinedButton(
                   child: const Text('Cancel'),
                   onPressed: () {
                     // Reset form fields to original values
@@ -152,8 +173,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     setState(() => _isEditing = false);
                   },
                 ),
-            ],
-          ),
+              ),
+
+            // --- DIVIDER ---
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24.0),
+              child: Divider(),
+            ),
+
+            // --- LOGOUT BUTTON ---
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[700], // A strong, consistent red
+                foregroundColor: Colors.white,   // Ensures text is white
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              icon: const Icon(Icons.logout),
+              label: const Text('Logout', style: TextStyle(fontSize: 16)),
+              onPressed: () {
+                // Show a confirmation dialog before logging out
+                showDialog(
+                  context: context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: const Text('Confirm Logout'),
+                    content: const Text('Are you sure you want to log out?'),
+                    actions: [
+                      TextButton(
+                        child: const Text('Cancel'),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Theme.of(context).colorScheme.error,
+                        ),
+                        child: const Text('Logout'),
+                        onPressed: () {
+                          Navigator.of(dialogContext).pop(); // Close dialog
+                          context.read<AppState>().logout(); // Log out
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );

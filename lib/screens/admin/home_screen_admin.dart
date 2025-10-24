@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
-import 'package:intl/intl.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   const AdminHomeScreen({super.key});
@@ -235,7 +234,7 @@ class AdminHomeScreen extends StatelessWidget {
                       context.go('/admin/review/${booking.id}');
                     },
                   );
-                }).toList(),
+                }),
                 // "View Full Schedule" Button
                 Padding(
                   padding: const EdgeInsets.all(8.0),

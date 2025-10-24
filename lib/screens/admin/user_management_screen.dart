@@ -284,7 +284,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ...adminUsers.map((user) =>
                   // --- FIX: Pass currentAdminUid ---
                   _buildUserCard(context, user, currentAdminUid))
-                      .toList(),
+                      ,
 
                 // --- Faculty Section ---
                 _buildSectionTitle(context, 'Faculty'),
@@ -296,7 +296,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ...facultyUsers.map((user) =>
                   // --- FIX: Pass currentAdminUid ---
                   _buildUserCard(context, user, currentAdminUid))
-                      .toList(),
+                      ,
               ],
             ),
           ),

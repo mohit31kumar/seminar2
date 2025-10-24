@@ -1,76 +1,98 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // When this screen is opened, mark all notifications as read
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AppState>().markNotificationsAsRead();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final appState = context.watch<AppState>();
-    final currentUser = appState.currentUser;
-    final theme = Theme.of(context);
-
-    // This check is a safeguard; routing should prevent unauthenticated access.
-    if (currentUser == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Notifications')),
-        body: const Center(child: Text('Please log in to see notifications.')),
-      );
-    }
-
-    // Filter notifications for the current user and sort them by time.
-    final userNotifications = appState.notifications
-        .where((n) => n.userId == currentUser.uid)
-        .toList();
-    userNotifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    // Use 'watch' to get the list and rebuild when it changes
+    final notifications = context.watch<AppState>().notifications;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
       ),
-      body: userNotifications.isEmpty
+      body: notifications.isEmpty
           ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'You have no notifications.',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                ],
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'You have no notifications.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
               ),
             )
           : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: userNotifications.length,
+              itemCount: notifications.length,
               itemBuilder: (context, index) {
-                final notification = userNotifications[index];
+                final notification = notifications[index];
+                
+                // --- CORRECTED ---
+                // Use the non-nullable fields directly from your model
+                final title = notification.title;
+                final body = notification.body;
+                final timestamp = notification.timestamp;
+                final bool hasBookingId = notification.bookingId != null &&
+                    notification.bookingId!.isNotEmpty;
+                // --- END CORRECTED ---
+
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  elevation: notification.isRead ? 0 : 2,
                   child: ListTile(
+                    // A faded icon for read, a bright one for unread
                     leading: Icon(
-                      notification.isRead ? Icons.notifications_none_outlined : Icons.notifications_active,
-                      color: notification.isRead ? Colors.grey : theme.colorScheme.primary,
+                      notification.isRead
+                          ? Icons.notifications_none
+                          : Icons.notifications_active,
+                      color: notification.isRead
+                          ? Colors.grey
+                          : Theme.of(context).primaryColor,
                     ),
                     title: Text(
-                      notification.title,
+                      title,
                       style: TextStyle(
-                        fontWeight: notification.isRead ? FontWeight.normal : FontWeight.bold,
+                        fontWeight:
+                            notification.isRead ? FontWeight.normal : FontWeight.bold,
                       ),
                     ),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(notification.body),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(body),
+                        const SizedBox(height: 4),
+                        Text(
+                          DateFormat.yMMMd().add_jm().format(timestamp),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
                     ),
-                    trailing: Text(
-                      DateFormat.yMd().add_jm().format(notification.timestamp),
-                      style: theme.textTheme.bodySmall,
-                    ),
+                    isThreeLine: true,
+                    // Allow tapping to go to the booking
+                    onTap: hasBookingId
+                        ? () {
+                            context
+                                .go('/booking/details/${notification.bookingId}');
+                          }
+                        : null,
                   ),
                 );
               },
