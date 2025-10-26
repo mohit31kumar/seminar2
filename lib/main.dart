@@ -1,3 +1,5 @@
+// lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -5,7 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:seminar_booking_app/services/auth_service.dart';
 import 'package:seminar_booking_app/services/firestore_service.dart';
 import 'package:seminar_booking_app/services/push_notification_service.dart';
-import 'firebase_options.dart';
+import 'firebase_options.dart'; // Make sure this file exists
 import 'package:seminar_booking_app/config/theme.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:seminar_booking_app/widgets/app_shell.dart';
@@ -25,12 +27,12 @@ import 'package:seminar_booking_app/screens/admin/booked_halls_screen.dart';
 import 'package:seminar_booking_app/screens/admin/hall_management_screen.dart';
 import 'package:seminar_booking_app/screens/admin/user_management_screen.dart';
 import 'package:seminar_booking_app/screens/admin/analytics_screen.dart';
-import 'package:seminar_booking_app/models/seminar_hall.dart';
 import 'package:seminar_booking_app/screens/admin/booking_history_screen.dart';
 import 'package:seminar_booking_app/screens/admin/review_booking_screen.dart';
-import 'package:seminar_booking_app/models/booking.dart';
-import 'package:collection/collection.dart';
 import 'package:seminar_booking_app/screens/admin/manage_hub_screen.dart';
+import 'package:collection/collection.dart'; // Used for .firstWhereOrNull
+import 'package:seminar_booking_app/screens/faculty/booking_confirmation_screen.dart';
+import 'package:seminar_booking_app/screens/shared/about_us_screen.dart'; // ✅ IMPORT THE NEW SCREEN
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -85,8 +87,6 @@ class _SeminarAppState extends State<SeminarApp> {
     final themeMode = context.select((AppState state) =>
         state.isDarkMode ? ThemeMode.dark : ThemeMode.light);
 
-    // --- REVERTED ---
-    // Removed the AnimatedSwitcher to prevent GlobalKey conflict
     return MaterialApp.router(
       title: 'Seminar Hall Booking',
       debugShowCheckedModeBanner: false,
@@ -95,28 +95,94 @@ class _SeminarAppState extends State<SeminarApp> {
       themeMode: themeMode,
       routerConfig: _router,
     );
-    // --- END REVERTED ---
   }
 }
 
 GoRouter createRouter(AppState appState) {
   return GoRouter(
-    initialLocation: '/home',
+    initialLocation: '/home', // Or '/login' if you prefer
     refreshListenable: appState,
     debugLogDiagnostics: true,
     routes: [
       // Standalone routes (no shell)
-      // GoRoute(path: '/home', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
           path: '/register',
           builder: (context, state) => const RegisterScreen()),
 
+      GoRoute(
+        path: '/booking/form',
+        builder: (context, state) {
+          final hallId = state.uri.queryParameters['hallId'];
+          final dateStr = state.uri.queryParameters['date'];
+          final startTimeStr = state.uri.queryParameters['startTime'];
+          final endTimeStr = state.uri.queryParameters['endTime'];
+
+          if (hallId == null ||
+              dateStr == null ||
+              startTimeStr == null ||
+              endTimeStr == null) {
+            return const Scaffold(
+              body: Center(
+                child: Text('Error: Missing booking information.'),
+              ),
+            );
+          }
+
+          try {
+            final hall = context
+                .read<AppState>()
+                .halls
+                .firstWhereOrNull((h) => h.id == hallId);
+
+            if (hall == null) {
+              return Scaffold(
+                  body:
+                      Center(child: Text('Error: Hall $hallId not found.')));
+            }
+
+            final date = DateTime.parse(dateStr);
+            final startTime = TimeOfDay(
+              hour: int.parse(startTimeStr.split(':')[0]),
+              minute: int.parse(startTimeStr.split(':')[1]),
+            );
+            final endTime = TimeOfDay(
+              hour: int.parse(endTimeStr.split(':')[0]),
+              minute: int.parse(endTimeStr.split(':')[1]),
+            );
+
+            return BookingFormScreen(
+              hall: hall,
+              date: date,
+              startTime: startTime,
+              endTime: endTime,
+            );
+          } catch (e) {
+            return Scaffold(
+              body: Center(
+                child: Text('Error: Invalid booking data. $e'),
+              ),
+            );
+          }
+        },
+      ),
+
+      GoRoute(
+        path: '/booking/confirmation',
+        builder: (context, state) => const BookingConfirmationScreen(),
+      ),
+
+      // ✅ ADD THE ABOUT US ROUTE (STANDALONE)
+      GoRoute(
+        path: '/about-us',
+        builder: (context, state) => const AboutUsScreen(),
+      ),
+
       // Main routes wrapped in the AppShell
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
-          // Shared Routes (accessible to both roles)
+          // Shared Routes
           GoRoute(
               path: '/facilities',
               builder: (context, state) => const FacilitiesScreen()),
@@ -135,7 +201,7 @@ GoRouter createRouter(AppState appState) {
               path: '/my-bookings',
               builder: (context, state) => const MyBookingsScreen()),
           GoRoute(
-            path: '/booking/details/:bookingId', // Uses path parameter
+            path: '/booking/details/:bookingId',
             builder: (context, state) {
               final bookingId = state.pathParameters['bookingId'];
               if (bookingId == null) {
@@ -155,12 +221,11 @@ GoRouter createRouter(AppState appState) {
               return BookingDetailsScreen(booking: booking);
             },
           ),
-
           GoRoute(
               path: '/booking',
               builder: (context, state) => const BookingScreen()),
           GoRoute(
-            path: '/booking/availability/:hallId', // Uses path parameter
+            path: '/booking/availability/:hallId',
             builder: (context, state) {
               final hallId = state.pathParameters['hallId'];
               if (hallId == null) {
@@ -174,26 +239,10 @@ GoRouter createRouter(AppState appState) {
               if (hall == null) {
                 return Scaffold(
                     body: Center(
-                        child: Text(
-                            'Error: Hall with ID $hallId not found.')));
+                        child:
+                            Text('Error: Hall with ID $hallId not found.')));
               }
               return AvailabilityCheckerScreen(hall: hall);
-            },
-          ),
-          GoRoute(
-            path: '/booking/form',
-            builder: (context, state) {
-              final extra = state.extra as Map<String, dynamic>?;
-              if (extra == null) {
-                return const Center(
-                    child: Text('Error: Booking data not provided.'));
-              }
-              return BookingFormScreen(
-                hall: extra['hall'],
-                date: extra['date'],
-                startTime: extra['startTime'],
-                endTime: extra['endTime'],
-              );
             },
           ),
 
@@ -231,11 +280,9 @@ GoRouter createRouter(AppState appState) {
           GoRoute(
               path: '/admin/history',
               builder: (context, state) => const BookingHistoryScreen()),
-          
           GoRoute(
               path: '/admin/manage',
               builder: (context, state) => const ManageHubScreen()),
-
           GoRoute(
               path: '/admin/users',
               builder: (context, state) => const UserManagementScreen()),
@@ -254,14 +301,19 @@ GoRouter createRouter(AppState appState) {
           location == '/register' ||
           location == '/splash';
 
-      // If user is not logged in and not on an auth page, redirect to register page
       if (!isLoggedIn && !isAuthPage) {
-        return '/register';
+        return '/login';
       }
 
-      // If user is logged in and on an auth page (after splash), redirect to their respective home screen
       if (isLoggedIn && isAuthPage && location != '/splash') {
         return role == 'admin' ? '/admin/home' : '/';
+      }
+
+      final bool isFaculty = role == 'Faculty';
+      final bool isAdminPage = location.startsWith('/admin');
+
+      if (isLoggedIn && isFaculty && isAdminPage) {
+        return '/';
       }
 
       return null; // No redirect needed

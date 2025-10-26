@@ -26,7 +26,6 @@ class AdminHomeScreen extends StatelessWidget {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            // Use MainAxisAlignment.spaceBetween to push content to top and bottom
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Icon(icon, color: color, size: 28),
@@ -127,7 +126,13 @@ class AdminHomeScreen extends StatelessWidget {
     final totalHalls = appState.halls.length;
 
     final approvedBookings = allBookings.where((b) => b.status == 'Approved');
-    final totalApprovedLifetime = approvedBookings.length;
+    
+    // --- ✅ MODIFIED: Calculate "Approved This Month" ---
+    final totalApprovedThisMonth = approvedBookings.where((b) {
+      final bookingDate = DateTime.parse(b.date);
+      return bookingDate.year == now.year && bookingDate.month == now.month;
+    }).length;
+    // --- END MODIFIED ---
 
     final bookingsToday = approvedBookings.where((b) {
       final bookingDate = DateTime.parse(b.date);
@@ -135,11 +140,6 @@ class AdminHomeScreen extends StatelessWidget {
     }).toList();
 
     return Scaffold(
-      // The AppBar is now in AppShell, so we don't need one here.
-      // appBar: AppBar(
-      //   title: const Text('Admin Dashboard'),
-      //   centerTitle: false,
-      // ),
       body: appState.isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -181,8 +181,6 @@ class AdminHomeScreen extends StatelessWidget {
                 icon: Icons.event_available_rounded,
                 color: Colors.green.shade700,
                 onTap: () {
-                  // --- THIS IS THE FIX ---
-                  // The path is plural
                   context.go('/admin/bookings');
                 },
               ),
@@ -196,16 +194,19 @@ class AdminHomeScreen extends StatelessWidget {
                   context.go('/admin/halls');
                 },
               ),
+              // --- ✅ MODIFIED: Stat Card Updated ---
               _buildStatCard(
                 context,
-                title: 'Total Approved',
-                count: totalApprovedLifetime.toString(),
+                title: 'Approved This Month',
+                count: totalApprovedThisMonth.toString(),
                 icon: Icons.check_circle_outline_rounded,
                 color: Colors.purple.shade700,
                 onTap: () {
-                  context.go('/admin/history');
+                  // Still goes to history, where user can filter
+                  context.go('/admin/history'); 
                 },
               ),
+              // --- END MODIFIED ---
             ],
           ),
 
@@ -230,7 +231,6 @@ class AdminHomeScreen extends StatelessWidget {
                         '${booking.hall} (${booking.startTime} - ${booking.endTime})'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
-                      // This one is correct, it goes to the review page
                       context.go('/admin/review/${booking.id}');
                     },
                   );
@@ -240,8 +240,6 @@ class AdminHomeScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(8.0),
                   child: TextButton(
                     onPressed: () {
-                      // --- THIS IS THE FIX ---
-                      // The path is plural
                       context.go('/admin/bookings');
                     },
                     child: const Text('View Full Schedule'),
@@ -282,8 +280,29 @@ class AdminHomeScreen extends StatelessWidget {
             ),
           ),
 
-          // --- 5. Quick Action Button to Full History ---
+          // --- 5. Quick Action Buttons ---
           const SizedBox(height: 24),
+          
+          // --- ✅ ADDED: View Full Analytics Button ---
+          ElevatedButton.icon(
+            icon: const Icon(Icons.analytics_outlined),
+            label: const Text('View Full Analytics'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            ),
+            onPressed: () {
+              context.go('/admin/analytics');
+            },
+          ),
+          // --- END ADDED ---
+
+          const SizedBox(height: 12),
           OutlinedButton.icon(
             icon: const Icon(Icons.history_rounded),
             label: const Text('View Full Booking History'),

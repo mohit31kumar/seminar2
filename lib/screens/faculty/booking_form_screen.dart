@@ -76,9 +76,8 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
       await appState.submitBooking(newBooking);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking request has been submitted successfully!')));
-        // Go to 'my-bookings' to see the new pending request
-        context.go('/my-bookings');
+        // ✅ NAVIGATE TO THE NEW CONFIRMATION SCREEN
+        context.go('/booking/confirmation');
       }
     }
   }
@@ -112,7 +111,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(labelText: 'Expected Attendees (Max: ${widget.hall.capacity})', border: const OutlineInputBorder()),
                 validator: (v) {
-                  if (v == null || v.isEmpty) return 'This field isD required';
+                  if (v == null || v.isEmpty) return 'This field is required';
                   final count = int.tryParse(v);
                   if (count == null) return 'Please enter a valid number';
                   if (count <= 0) return 'Attendees must be greater than zero';

@@ -1,15 +1,63 @@
+// lib/widgets/app_shell.dart
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:badges/badges.dart' as badges;
 import 'package:seminar_booking_app/providers/app_state.dart';
 
-class AppShell extends StatelessWidget {
+// 1. CONVERTED TO STATEFULWIDGET
+class AppShell extends StatefulWidget {
   final Widget child;
   const AppShell({super.key, required this.child});
 
   @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  // 2. ADDED STATE VARIABLE TO TRACK NOTIFICATIONS
+  int _previousUnreadCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // 3. SET THE INITIAL COUNT
+    _previousUnreadCount = context.read<AppState>().unreadNotificationCount;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // 4. WATCH FOR CHANGES
+    final newUnreadCount = context.watch<AppState>().unreadNotificationCount;
+
+    // 5. COMPARE AND SHOW SNACKBAR IF COUNT INCREASED
+    if (newUnreadCount > _previousUnreadCount) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text("You have a new notification!"),
+              action: SnackBarAction(
+                label: "View",
+                onPressed: () => context.go('/notifications'),
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      });
+    }
+
+    // 6. UPDATE THE COUNT
+    _previousUnreadCount = newUnreadCount;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // All build logic is the same, just uses `widget.child`
     final appState = context.watch<AppState>();
     final currentUser = appState.currentUser;
     final isAdmin = currentUser?.role == 'admin';
@@ -22,7 +70,6 @@ class AppShell extends StatelessWidget {
       '/admin/users',
     };
 
-    // Check if the current location is one of the sub-pages
     final bool isSubPage = isAdmin && adminSubPages.contains(location);
 
     if (appState.isLoading) {
@@ -36,15 +83,12 @@ class AppShell extends StatelessWidget {
                 icon: const Icon(Icons.arrow_back),
                 tooltip: 'Back',
                 onPressed: () {
-                  // All sub-pages go back to the "Manage" hub
                   context.go('/admin/manage');
                 },
               )
             : null,
-
         title: const Text('P.U. Booking'),
         actions: [
-          // Notification Icon with a badge for unread count
           IconButton(
             tooltip: 'Notifications',
             icon: badges.Badge(
@@ -57,40 +101,33 @@ class AppShell extends StatelessWidget {
             ),
             onPressed: () {
               context.go('/notifications');
-              // Mark notifications as read when the user navigates to the screen
               context.read<AppState>().markNotificationsAsRead();
             },
           ),
-          
-          // --- UPDATED ---
-          // Replaced the PopupMenuButton with a direct IconButton
           if (currentUser != null)
             IconButton(
               icon: const Icon(Icons.account_circle_outlined),
               tooltip: 'My Profile',
               onPressed: () {
-                // Navigate directly to the profile screen
                 context.go('/profile');
               },
             ),
-          // --- END UPDATED ---
-            
         ],
       ),
-      body: child, // The actual screen content is rendered here
+      body: widget.child, // Use widget.child
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // Ensures all items are visible
+        type: BottomNavigationBarType.fixed,
         currentIndex: _calculateSelectedIndex(context, isAdmin),
         onTap: (index) => _onItemTapped(index, context, isAdmin),
         items: _buildNavItems(isAdmin),
       ),
     );
   }
+  
+  // --- All helper methods below are unchanged ---
 
-  /// Builds the list of navigation items based on the user's role.
   List<BottomNavigationBarItem> _buildNavItems(bool isAdmin) {
     if (isAdmin) {
-      // Admin navigation items
       return const [
         BottomNavigationBarItem(
           icon: Icon(Icons.dashboard_outlined),
@@ -114,7 +151,6 @@ class AppShell extends StatelessWidget {
         ),
       ];
     } else {
-      // Faculty navigation items
       return const [
         BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
         BottomNavigationBarItem(
@@ -127,51 +163,44 @@ class AppShell extends StatelessWidget {
     }
   }
 
-  /// Calculates the active index for the BottomNavigationBar.
   int _calculateSelectedIndex(BuildContext context, bool isAdmin) {
     final location = GoRouterState.of(context).matchedLocation;
 
     if (isAdmin) {
       if (location == '/admin/home') return 0;
       if (location == '/admin/bookings') return 1;
-
-      // The "Manage" tab is now active for the hub, halls, and users.
-      if (location == '/admin/manage' || // The new hub page
-          location == '/admin/halls' || // The halls page
-          location == '/admin/users') { // The users page
+      if (location == '/admin/manage' ||
+          location == '/admin/halls' ||
+          location == '/admin/users') {
         return 2;
       }
-
       if (location == '/admin/analytics') return 3;
     } else {
-      // Faculty logic
       if (location == '/') return 0;
       if (location == '/facilities') return 1;
       if (location.startsWith('/booking')) return 2;
       if (location == '/my-bookings') return 3;
     }
-    return 0; // Default to the first tab
+    return 0;
   }
 
-  /// Handles navigation when a bottom navigation item is tapped.
   void _onItemTapped(int index, BuildContext context, bool isAdmin) {
     if (isAdmin) {
       switch (index) {
-        case 0: // Dashboard
+        case 0:
           context.go('/admin/home');
           break;
-        case 1: // Schedule
+        case 1:
           context.go('/admin/bookings');
           break;
-        case 2: // Manage
+        case 2:
           context.go('/admin/manage');
           break;
-        case 3: // Analytics
+        case 3:
           context.go('/admin/analytics');
           break;
       }
     } else {
-      // Faculty logic
       switch (index) {
         case 0:
           context.go('/');

@@ -37,6 +37,22 @@ dependencies:
   table_calendar: ^3.1.1
   cloud_functions: ^4.7.6
 
+  csv: ^6.0.0
+  path_provider: ^2.1.3
+  share_plus: ^9.0.0
+
+  font_awesome_flutter: ^10.7.0
+
+  flutter_animate: ^4.5.0 # Or latest
+
+  # For opening social links in the "About Us" dialog
+url_launcher: ^6.3.0 # Or latest
+
+  # For the Analytics Export feature
+csv: ^6.0.0 # Or latest
+path_provider: ^2.1.3 # Or latest
+share_plus: ^9.0.0 #
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -48,7 +64,7 @@ flutter:
 
   assets:
     - assets/logo.png
-    - assets/images/logo.png
+    - assets/images/sameer_avatar.jpg
 
 flutter_launcher_icons:
   image_path: "assets/logo.png"

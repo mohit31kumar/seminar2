@@ -1,12 +1,110 @@
+// lib/screens/admin/analytics_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
-import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
+import 'package:collection/collection.dart'; // For groupBy, mapIndexed
+
+// --- ADD THESE PACKAGES TO YOUR PUBSPEC.YAML ---
+import 'package:csv/csv.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:io';
+
+import 'package:seminar_booking_app/widgets/stat_card.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
+
 
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
+
+  // --- Export Dialog Function ---
+  void _showExportDialog(BuildContext context, AppState appState) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Export Data'),
+          content: const Text('Which format would you like to export?'),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            TextButton(
+              child: const Text('Export CSV'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _exportBookingsToCSV(context, appState.bookings);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- CSV Export Logic ---
+  Future<void> _exportBookingsToCSV(BuildContext context, List<dynamic> bookings) async {
+    if (bookings.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No data to export.')),
+      );
+      return;
+    }
+
+    try {
+      // Define CSV headers
+      List<String> headers = [
+        'ID', 'Title', 'Hall', 'Date', 'Start Time', 'End Time',
+        'Status', 'Requested By', 'Department', 'Attendees'
+      ];
+      
+      // Map bookings data to list of lists
+      List<List<dynamic>> rows = [];
+      rows.add(headers); // Add headers as the first row
+      
+      for (var booking in bookings) {
+        rows.add([
+          booking.id,
+          booking.title,
+          booking.hall,
+          booking.date,
+          booking.startTime,
+          booking.endTime,
+          booking.status,
+          booking.requestedBy,
+          booking.department,
+          booking.expectedAttendees,
+        ]);
+      }
+
+      // Convert to CSV string
+      final String csv = const ListToCsvConverter().convert(rows);
+
+      // Get temporary directory
+      final Directory tempDir = await getTemporaryDirectory();
+      final String path = '${tempDir.path}/all_bookings_${DateFormat('yyyy-MM-dd').format(DateTime.now())}.csv';
+
+      // Write file
+      final File file = File(path);
+      await file.writeAsString(csv);
+
+      // Share file
+      await Share.shareXFiles(
+        [XFile(path, name: 'all_bookings.csv')],
+        subject: 'Seminar Hall Bookings Export',
+      );
+
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error exporting CSV: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,16 +153,73 @@ class AnalyticsScreen extends StatelessWidget {
     final deptChartData = bookingsByDept.entries.map((entry) {
       return {'name': entry.key, 'count': entry.value.length};
     }).toList();
+    // ✅ FIX 1: Replaced sortedBy with standard sort
     deptChartData.sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
 
+    // --- Data for Key Metrics ---
+    final totalPending = allBookings.where((b) => b.status == 'Pending').length;
+    
+    // ✅ FIX 1: Replaced sortedBy with standard sort
+    final sortedHalls = bookingsByHall.entries.toList()
+      ..sort((a, b) => a.value.length.compareTo(b.value.length));
+    final mostBookedHall = sortedHalls.isEmpty ? null : sortedHalls.last;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Analytics Dashboard'),
+        actions: [
+          // --- Export Button ---
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            tooltip: 'Export Data',
+            onPressed: () {
+              _showExportDialog(context, appState);
+            },
+          ),
+        ],
       ),
       body: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // --- Key Metrics Section ---
+                Text(
+                  'Key Metrics',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                GridView.count(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  childAspectRatio: (1.8 / 1),
+                  children: [
+                    StatCard(
+                      icon: Icons.list_alt_rounded,
+                      title: 'Total Requests',
+                      value: allBookings.length.toString(),
+                    ),
+                    StatCard(
+                      icon: Icons.check_circle_outline,
+                      title: 'Total Approved',
+                      value: approvedBookings.length.toString(),
+                    ),
+                    StatCard(
+                      icon: Icons.pending_actions_rounded,
+                      title: 'Pending Review',
+                      value: totalPending.toString(),
+                    ),
+                    StatCard(
+                      icon: Icons.business_rounded,
+                      title: 'Busiest Hall',
+                      // ✅ FIX 1: Use .key on the MapEntry
+                      value: mostBookedHall?.key ?? 'N/A',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
                 _buildChartCard(
                   title: "Approved Bookings per Hall",
                   chart: BarChart(
@@ -79,7 +234,7 @@ class AnalyticsScreen extends StatelessWidget {
                               if (index >= halls.length) return const SizedBox.shrink();
                               return SideTitleWidget(
                                 axisSide: meta.axisSide,
-                                child: Text(halls[index].name.substring(0, 3)),
+                                child: Text(halls[index].name.length > 3 ? halls[index].name.substring(0, 3) : halls[index].name),
                               );
                             },
                             reservedSize: 30,
@@ -124,7 +279,10 @@ class AnalyticsScreen extends StatelessWidget {
                           color: Colors.amber,
                           barWidth: 4,
                           isStrokeCapRound: true,
-                          belowBarData: BarAreaData(show: true, color: Colors.amber.withOpacity(0.3)),
+                          
+                          // ✅ FIX 2: 'withOpacity' replaced with 'withAlpha'
+                          // (0.3 * 255 = 76.5, so we use 77)
+                          belowBarData: BarAreaData(show: true, color: Colors.amber.withAlpha(77)), 
                         ),
                       ],
                     ),
@@ -146,7 +304,7 @@ class AnalyticsScreen extends StatelessWidget {
                                    final index = value.toInt();
                                    if (index >= deptChartData.length) return const SizedBox.shrink();
                                    return SideTitleWidget(
-                                      angle: -0.5, // Rotate labels for better fit
+                                      angle: -0.5,
                                       axisSide: meta.axisSide,
                                       child: Text(deptChartData[index]['name'] as String, style: const TextStyle(fontSize: 10)),
                                    );
@@ -155,6 +313,8 @@ class AnalyticsScreen extends StatelessWidget {
                              ),
                           ),
                           leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 28, getTitlesWidget: (value, meta) => SideTitleWidget(axisSide: meta.axisSide, child: Text(value.toInt().toString())))),
+                          
+                          // ✅ FIX 3: Typo 'showTItles' corrected to 'showTitles'
                           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                        ),

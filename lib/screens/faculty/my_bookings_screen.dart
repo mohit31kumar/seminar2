@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; // <-- ADDED for date formatting
+import 'package:intl/intl.dart';
 import 'package:seminar_booking_app/models/booking.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:seminar_booking_app/services/firestore_service.dart';
@@ -74,21 +74,42 @@ class MyBookingsScreen extends StatelessWidget {
     );
   }
   
-  // --- NEW: BOOKING CARD WIDGET ---
+  // --- UPDATED BOOKING CARD WIDGET ---
   Widget _buildBookingCard(BuildContext context, Booking booking) {
     final theme = Theme.of(context);
     // Format the date and time
     final formattedDate = DateFormat.yMMMMd().format(DateTime.parse(booking.date));
     final timeRange = '${booking.startTime} - ${booking.endTime}';
     
-    // Check if cancel button should be shown
-    final bool canCancel = booking.status == 'Pending' || booking.status == 'Approved';
+    // --- ✅ NEW CANCELLATION LOGIC ---
+    bool canCancel;
+    if (booking.status == 'Pending') {
+      // 1. Can ALWAYS cancel a 'Pending' request
+      canCancel = true;
+    } else if (booking.status == 'Approved') {
+      // 2. For 'Approved', check the 24-hour rule
+      try {
+        // Parse the combined date and start time
+        final bookingDateTime = DateTime.parse('${booking.date} ${booking.startTime}');
+        // Find the cutoff time (24 hours before the event)
+        final cutoffDateTime = bookingDateTime.subtract(const Duration(hours: 24));
+        // Check if "now" is after the cutoff time
+        final bool isTooLate = DateTime.now().isAfter(cutoffDateTime);
+        canCancel = !isTooLate; // Can cancel if it is NOT too late
+      } catch (e) {
+        // Failsafe in case of bad date/time format
+        canCancel = false;
+      }
+    } else {
+      // 3. Cannot cancel 'Rejected' or 'Cancelled'
+      canCancel = false;
+    }
+    // --- END OF NEW LOGIC ---
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6.0),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        // --- UPDATED NAVIGATION ---
         onTap: () => context.go('/booking/details/${booking.id}'),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -158,7 +179,7 @@ class MyBookingsScreen extends StatelessWidget {
     );
   }
 
-  // --- NEW: Helper for icon rows ---
+  // --- Helper for icon rows ---
   Widget _buildInfoRow(BuildContext context, {required IconData icon, required String text}) {
     return Row(
       children: [
@@ -168,7 +189,6 @@ class MyBookingsScreen extends StatelessWidget {
       ],
     );
   }
-  // --- END OF NEW WIDGETS ---
 
   @override
   Widget build(BuildContext context) {

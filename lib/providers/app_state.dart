@@ -99,11 +99,28 @@ class AppState with ChangeNotifier {
   }
 
   Future<bool> login(String email, String password) async {
-    _isLoading = true;
-    notifyListeners();
+  _isLoading = true;
+  notifyListeners();
+  
+  try {
     final user = await authService.signInWithEmailAndPassword(email, password);
+    
+    // If login fails, authStateChanges won't fire, so we manually stop loading.
+    if (user == null) {
+      _isLoading = false;
+      notifyListeners();
+    }
     return user != null;
+    
+  } catch (e) {
+    // Also stop loading on any unexpected error
+    _isLoading = false;
+    notifyListeners();
+    return false;
   }
+  // Note: On successful login, _onAuthStateChanged will also set _isLoading = false,
+  // which is fine.
+}
 
   Future<void> logout() async {
     await authService.signOut();

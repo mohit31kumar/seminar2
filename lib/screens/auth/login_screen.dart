@@ -126,13 +126,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               padding:
                                   const EdgeInsets.symmetric(vertical: 16)),
                           child: appState.isLoading
-                              ? Column(
-                                  children: [
-                                    Image.asset('assets/logo.png', height: 40),
-                                    const SizedBox(height: 8),
-                                    const CircularProgressIndicator(
-                                        color: Colors.white),
-                                  ],
+                              ? const CircularProgressIndicator( // <--- ✅ FIXED
+                                  color: Colors.white,
                                 )
                               : const Text('Login'),
                         ),

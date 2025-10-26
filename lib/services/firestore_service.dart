@@ -5,6 +5,9 @@ import 'package:seminar_booking_app/models/seminar_hall.dart';
 import 'package:seminar_booking_app/models/booking.dart';
 import 'package:seminar_booking_app/models/notification.dart';
 
+// ✅ IMPORT THE STORAGE SERVICE
+import 'package:seminar_booking_app/services/storage_service.dart';
+
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
@@ -50,25 +53,6 @@ class FirestoreService {
     data.remove('role');
 
     return _db.collection('users').doc(uid).update(data);
-  }
-
-  /// Creates a user document, typically called by an admin.
-  Future<void> createAdminUser({
-    required String uid,
-    required String name,
-    required String email,
-    required String department,
-    required String employeeId,
-    required String role,
-  }) {
-    return _db.collection('users').doc(uid).set({
-      'name': name,
-      'email': email,
-      'department': department,
-      'employeeId': employeeId,
-      'role': role,
-      'fcmTokens': [],
-    });
   }
 
   Future<void> deleteUser(String uid) {
@@ -120,14 +104,13 @@ class FirestoreService {
 
 
   /// Updates an existing document in the 'seminarHalls' collection.
-  /// This is used for the "Edit" dialog.
   Future<void> updateHall({
     required String hallId,
     required String name,
     required int capacity,
     required List<String> facilities,
     required String description,
-    required String imageUrl, // The Edit dialog will pass the new or old URL
+    required String imageUrl,
   }) {
     return _db.collection('seminarHalls').doc(hallId).update({
       'name': name,
@@ -138,11 +121,33 @@ class FirestoreService {
     });
   }
 
+  // --- ✅ THIS FUNCTION IS NOW FIXED ---
   /// Deletes a hall from the database.
-  Future<void> deleteHall(String hallId) {
-    // TODO: Also delete the hall's image from Firebase Storage
-    return _db.collection('seminarHalls').doc(hallId).delete();
+  Future<void> deleteHall(String hallId) async {
+    try {
+      // 1. Get the document first to find its imageUrl
+      final doc = await _db.collection('seminarHalls').doc(hallId).get();
+      if (!doc.exists) return; // Hall already deleted
+      
+      final imageUrl = doc.data()?['imageUrl'] as String?;
+    
+      // 2. If an image URL exists, delete it from Storage
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        final storageService = StorageService(); 
+        await storageService.deleteImage(imageUrl);
+      }
+    
+      // 3. Finally, delete the Firestore document
+      await _db.collection('seminarHalls').doc(hallId).delete();
+      
+    } catch (e) {
+      // If deleting the image fails, re-throw the error
+      // so the user knows something went wrong.
+      print('Error deleting hall: $e');
+      rethrow;
+    }
   }
+  // --- END OF FIX ---
 
   // (Booking methods are unchanged)
   // ...
@@ -209,6 +214,10 @@ class FirestoreService {
         'uid': uid,
         'newRole': newRole,
       });
+
+      // Also update the Firestore document
+      await _db.collection('users').doc(uid).update({'role': newRole});
+
       return null; // Success
     } on FirebaseFunctionsException catch (e) {
       return e.message; // Return error from the cloud function

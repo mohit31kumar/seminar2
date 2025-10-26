@@ -1,15 +1,21 @@
+// lib/screens/shared/profile_screen.dart
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart'; // Import GoRouter
 import 'package:provider/provider.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 
 class ProfileScreen extends StatefulWidget {
+  // ... (rest of StatefulWidget code)
   const ProfileScreen({super.key});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
+
 class _ProfileScreenState extends State<ProfileScreen> {
+  // ... (all existing code: _isEditing, _formKey, controllers, etc.)
   bool _isEditing = false;
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
@@ -59,6 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
@@ -74,7 +81,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('My Profile'),
         actions: [
-          // --- ADDED: THEME TOGGLE ---
           IconButton(
             icon: Icon(appState.isDarkMode
                 ? Icons.light_mode_outlined
@@ -84,9 +90,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               context.read<AppState>().toggleTheme();
             },
           ),
-          // --- END ADDED ---
-          
-          // Toggle between Edit and Save buttons
           if (!_isEditing)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
@@ -160,14 +163,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             
-            // --- CANCEL BUTTON (Only shows when editing) ---
             if (_isEditing)
               Padding(
                 padding: const EdgeInsets.only(top: 24.0),
                 child: OutlinedButton(
                   child: const Text('Cancel'),
                   onPressed: () {
-                    // Reset form fields to original values
                     _nameController.text = currentUser.name;
                     _departmentController.text = currentUser.department;
                     setState(() => _isEditing = false);
@@ -181,17 +182,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Divider(),
             ),
 
+            // --- ✅ NEW: ABOUT TEAM BUTTON ---
+            ListTile(
+              leading: const Icon(Icons.group_outlined),
+              title: const Text('About Team Shunya'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                // Use push for better back navigation
+                context.push('/about-us');
+              },
+            ),
+            const SizedBox(height: 16), // Add some space before logout
+            // --- END NEW ---
+
             // --- LOGOUT BUTTON ---
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[700], // A strong, consistent red
-                foregroundColor: Colors.white,   // Ensures text is white
+                backgroundColor: Colors.red[700],
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
               icon: const Icon(Icons.logout),
               label: const Text('Logout', style: TextStyle(fontSize: 16)),
               onPressed: () {
-                // Show a confirmation dialog before logging out
                 showDialog(
                   context: context,
                   builder: (dialogContext) => AlertDialog(
@@ -208,8 +221,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         child: const Text('Logout'),
                         onPressed: () {
-                          Navigator.of(dialogContext).pop(); // Close dialog
-                          context.read<AppState>().logout(); // Log out
+                          Navigator.of(dialogContext).pop();
+                          context.read<AppState>().logout();
                         },
                       ),
                     ],

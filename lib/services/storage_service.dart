@@ -45,18 +45,34 @@ class StorageService {
     }
   }
 
+  // --- ✅ THIS FUNCTION IS NOW FIXED ---
   /// Deletes an image from Firebase Storage.
-  /// Used when replacing an image.
   Future<void> deleteImage(String imageUrl) async {
     if (imageUrl.isEmpty) return; // Nothing to delete
+    
+    // We removed the try...catch block.
+    // We WANT the error to be thrown so the UI (the dialog)
+    // can catch it and show the user that the deletion failed.
+    
+    // If the image URL is not a valid gs:// or https:// URL,
+    // this line will throw an exception, which is what we want.
     try {
       final Reference ref = _storage.refFromURL(imageUrl);
       await ref.delete();
-    } catch (e) {
-      // We can ignore "object-not-found" errors
-      if (e is FirebaseException && e.code != 'object-not-found') {
-        print('Error deleting old image: $e');
+    } on FirebaseException catch (e) {
+      // If the object doesn't exist, we can safely ignore the error.
+      // Otherwise, we re-throw it so the UI can catch it.
+      if (e.code == 'object-not-found') {
+        print('Image not found, skipping delete.');
+      } else {
+        print('Error deleting image: $e');
+        rethrow;
       }
+    } catch (e) {
+      // Catch any other potential errors and re-throw them.
+      print('Unexpected error deleting image: $e');
+      rethrow;
     }
   }
+  // --- END OF FIX ---
 }
