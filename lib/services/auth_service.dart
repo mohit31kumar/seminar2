@@ -1,11 +1,13 @@
 import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:firebase_core/firebase_core.dart' as core;
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:seminar_booking_app/models/user.dart';
 import 'package:seminar_booking_app/services/firestore_service.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
 class AuthService {
   final auth.FirebaseAuth _firebaseAuth = auth.FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
   final FirestoreService _firestoreService = FirestoreService();
 
   /// A stream that listens for authentication state changes and provides the
@@ -19,6 +21,71 @@ class AuthService {
       return await _firestoreService.getUser(firebaseUser.uid);
     });
   }
+
+  /// Handles Google Sign-In.
+  Future<User?> signInWithGoogle() async {
+    try {
+      // 1. Trigger the Google Authentication flow.
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+      if (googleUser == null) {
+        print("Google Sign-In cancelled by user.");
+        return null; // Return null if user cancels
+      }
+
+      // 2. Perform email domain validation
+      if (!googleUser.email.endsWith('@poornima.edu.in')) {
+        print("Sign-in failed: Email domain is not allowed.");
+        await _googleSignIn.signOut();
+        throw auth.FirebaseAuthException(
+          code: 'invalid-email-domain',
+          message: 'Only @poornima.edu.in emails are allowed.',
+        );
+      }
+
+      // 3. Obtain the auth details
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // 4. Create a new credential for Firebase
+      final auth.AuthCredential credential = auth.GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // 5. Sign in to Firebase
+      final auth.UserCredential userCredential =
+          await _firebaseAuth.signInWithCredential(credential);
+      final auth.User? firebaseUser = userCredential.user;
+
+      if (firebaseUser == null) {
+        return null; // Return null on failure
+      }
+
+      // 6. Check if user exists in Firestore, create if not
+      User? appUser = await _firestoreService.getUser(firebaseUser.uid);
+      if (appUser == null) {
+        await _firestoreService.createUser(
+          uid: firebaseUser.uid,
+          name: googleUser.displayName ?? 'Poornima User',
+          email: googleUser.email,
+          department: 'Unknown', // Placeholder
+          employeeId: '0000', // Placeholder
+          role: 'Faculty',
+        );
+        appUser = await _firestoreService.getUser(firebaseUser.uid);
+      }
+
+      return appUser; // Return the Firestore user object
+
+    } on auth.FirebaseAuthException catch (e) {
+       print("Firebase Auth Exception during Google Sign-In: ${e.code} - ${e.message}");
+       rethrow; // Re-throw the error to be caught by the UI
+    } catch (e) {
+      print("An unexpected error occurred during Google Sign-In: $e");
+      return null;
+    }
+  }
+
 
   /// Handles self-registration for Faculty users.
   Future<String?> registerWithEmailAndPassword({
@@ -36,7 +103,6 @@ class AuthService {
       if (credential.user == null) {
         return "An unknown error occurred.";
       }
-      // This calls the updated createUser method with the default 'Faculty' role.
       await _firestoreService.createUser(
         uid: credential.user!.uid,
         name: name,
@@ -44,13 +110,13 @@ class AuthService {
         department: department,
         employeeId: employeeId,
       );
-      return null; // Return null on success
+      return null;
     } on auth.FirebaseAuthException catch (e) {
-      return e.message; // Return the specific Firebase error message on failure
+      return e.message;
     }
   }
 
-  /// Admin-only function to create a new user without signing out the admin.
+  /// Admin-only function to create a new user.
   Future<String?> createUserByAdmin({
     required String email,
     required String password,
@@ -63,17 +129,13 @@ class AuthService {
     core.FirebaseApp? tempApp;
 
     try {
-      // Initialize a temporary, secondary Firebase App instance. This allows
-      // us to create a user without affecting the currently logged-in admin.
       tempApp = await core.Firebase.initializeApp(
         name: tempAppName,
-        options: core.Firebase.app().options, // Use options from the default app
+        options: core.Firebase.app().options,
       );
       
-      // Get the auth instance associated with the temporary app.
       final tempAuth = auth.FirebaseAuth.instanceFor(app: tempApp);
 
-      // Create the new user in Firebase Authentication.
       final credential = await tempAuth.createUserWithEmailAndPassword(
           email: email, password: password);
 
@@ -81,24 +143,22 @@ class AuthService {
         throw Exception("User creation failed in temporary Firebase app.");
       }
 
-      // Create the user document in Firestore with the specified role.
       await _firestoreService.createUser(
         uid: credential.user!.uid,
         name: name,
         email: email,
         department: department,
         employeeId: employeeId,
-        role: role, // Pass the role provided by the admin
+        role: role,
       );
 
-      return null; // Success
+      return null;
     } on auth.FirebaseAuthException catch (e) {
-      return e.message; // Return specific auth error
+      return e.message;
     } catch (e) {
       print("Admin user creation error: $e");
       return "An unexpected error occurred.";
     } finally {
-      // IMPORTANT: Always delete the temporary app instance to clean up resources.
       if (tempApp != null) {
         await tempApp.delete();
       }
@@ -129,11 +189,17 @@ class AuthService {
     }
   }
 
-  /// Signs the current user out.
+  /// Signs the current user out from both Firebase and Google.
   Future<void> signOut() async {
-    return await _firebaseAuth.signOut();
+    try {
+      await _googleSignIn.signOut(); // Sign out from Google
+      await _firebaseAuth.signOut(); // Sign out from Firebase
+    } catch (e) {
+      print("Error signing out: $e");
+    }
   }
 
+  /// Calls a Cloud Function to delete a user from Firebase Auth.
   Future<String?> deleteUserByAdmin({required String uid}) async {
     try {
       final callable = FirebaseFunctions.instance.httpsCallable('deleteUser');

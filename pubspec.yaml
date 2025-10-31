@@ -45,6 +45,9 @@ dependencies:
 
   flutter_animate: ^4.5.0 # Or latest
 
+  google_sign_in: ^6.2.1
+  flutter_local_notifications: ^17.1.2
+
   # For opening social links in the "About Us" dialog
 url_launcher: ^6.3.0 # Or latest
 

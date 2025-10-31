@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:seminar_booking_app/widgets/member_grid_card.dart';
 import 'package:seminar_booking_app/widgets/member_detail_dialog.dart';
-import 'package:seminar_booking_app/widgets/text.dart'; // ✅ Import AppText
-import 'package:seminar_booking_app/widgets/container.dart'; // ✅ Import GlassContainer
+import 'package:seminar_booking_app/widgets/text.dart';
+import 'package:seminar_booking_app/widgets/container.dart';
 
 class AboutUsScreen extends StatelessWidget {
   const AboutUsScreen({super.key});
@@ -14,38 +14,41 @@ class AboutUsScreen extends StatelessWidget {
   static const List<Map<String, String?>> teamMembers = [
      {
       'name': 'Sameer Beniwal',
-      'role': 'Lead Developer',
+      'role': 'Developer',
       'course': 'B.Tech AIML',
-      'regNo': '2024PUFCEBAMX17768',
-      'email': '2024btechaimlsameer17768@poornima.edu.in',
+      'regNo': '2024/17768',
       'avatarAssetPath': 'assets/images/sameer_avatar.jpg',
+      'email': '2024btechaimlsameer17768@poornima.edu.in',
       'linkedinUrl': 'LINKEDIN_URL',
       'githubUrl': 'GITHUB_URL',
     },
     {
       'name': 'Mohit Kumar',
       'role': 'Backend Developer',
-      'course': 'B.Tech AIML',
-      'regNo': 'PUAIML2024-002',
+      'course': 'BCA MA & FSD',
+      'regNo': '2024/19405',
       'avatarAssetPath': 'assets/images/mohit_avatar.jpg',
+      'email': '2024bcamafsmohit19405@poornima.edu.in',
       'linkedinUrl': 'LINKEDIN_URL',
       'githubUrl': 'GITHUB_URL',
     },
     {
       'name': 'Aryan Gaikwad',
-      'role': 'UI/UX Designer',
+      'role': 'Developer',
       'course': 'B.Tech AIML',
-      'regNo': 'PUAIML2024-003',
+      'regNo': '2024/18800',
       'avatarAssetPath': 'assets/images/aryan_avatar.jpg',
+      'email': '2024btechaimlaryan18800@poornima.edu.in',
       'linkedinUrl': 'LINKEDIN_URL',
       'githubUrl': 'GITHUB_URL',
     },
     {
       'name': 'Kshitij Soni',
       'role': 'Frontend Developer',
-      'course': 'B.Tech AIML',
-      'regNo': 'PUAIML2024-004',
+      'course': 'BCA cyber Security',
+      'regNo': '2024/18810',
       'avatarAssetPath': 'assets/images/kshitij_avatar.jpg',
+      'email': '2024bcacyberkshitij004@poornima.edu.in',
       'linkedinUrl': 'LINKEDIN_URL',
       'githubUrl': 'GITHUB_URL',
     },
@@ -61,7 +64,7 @@ class AboutUsScreen extends StatelessWidget {
           course: memberData['course'] ?? 'N/A',
           regNo: memberData['regNo'] ?? 'N/A',
           avatarAssetPath: memberData['avatarAssetPath'] ?? '',
-          email: memberData['email'] ?? 'N/A',
+          email: memberData['email'], // Pass email
           linkedinUrl: memberData['linkedinUrl'],
           githubUrl: memberData['githubUrl'],
         );
@@ -71,20 +74,17 @@ class AboutUsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // No theme needed directly, AppText handles it
     return Scaffold(
-      extendBodyBehindAppBar: true, // Keep AppBar transparent overlay
+      extendBodyBehindAppBar: true, 
       appBar: AppBar(
-        backgroundColor: Colors.transparent, // Make AppBar see-through
+        backgroundColor: Colors.transparent, 
         elevation: 0,
-        // Use AppText for title for consistency, though standard Text is fine too
-        title: const AppText('About Us', color: Colors.white), // White title
+        // ✅ Use AppText for title for consistency, though standard Text is fine too
+        title: const AppText('About Us', color: Colors.white), 
         centerTitle: true,
-        // Ensure back button is visible against gradient
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Container(
-        // Keep the gradient background
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xFF1E1E2C), Color(0xFF23233A)],
@@ -93,21 +93,18 @@ class AboutUsScreen extends StatelessWidget {
           ),
         ),
         child: ListView(
-          // Adjust top padding to account for transparent AppBar
           padding: EdgeInsets.only(
             left: 20,
             right: 20,
-            top: MediaQuery.of(context).padding.top + kToolbarHeight + 20, // Status bar + AppBar + spacing
+            top: MediaQuery.of(context).padding.top + kToolbarHeight + 20,
             bottom: 40,
           ),
           children: [
-            // --- Header Title ---
             Column(
               children: [
-                // ✅ Use AppText
                 const AppText(
-                  "Team Shunya", // Corrected spelling
-                  variant: AppTextVariant.h1, // Use displaySmall equivalent
+                  "TECH ŚŪNYA", 
+                  variant: AppTextVariant.h1,
                   textAlign: TextAlign.center,
                   color: Colors.white,
                   letterSpacing: 1.2,
@@ -117,10 +114,9 @@ class AboutUsScreen extends StatelessWidget {
                     .fadeIn(duration: 600.ms)
                     .slideY(begin: -0.2, curve: Curves.easeOut),
                 const SizedBox(height: 8),
-                // ✅ Use AppText
                 const AppText(
                   "Innovators behind P.U. Booking",
-                  variant: AppTextVariant.body, // Use titleMedium equivalent
+                  variant: AppTextVariant.body,
                   textAlign: TextAlign.center,
                   color: Colors.white70,
                   fontWeight: FontWeight.w400,
@@ -129,48 +125,45 @@ class AboutUsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 30),
 
-            // --- Tagline / Mission Card ---
-            // ✅ Use GlassContainer
             GlassContainer(
               borderRadius: 20,
-              padding: const EdgeInsets.all(20), // Slightly more padding
-              backgroundColor: Colors.white.withOpacity(0.08),
-              border: Border.all(color: Colors.white.withOpacity(0.12)),
+              padding: const EdgeInsets.all(20),
+              backgroundColor: Colors.white.withAlpha(20), // 0.08 * 255
+              border: Border.all(color: Colors.white.withAlpha(30)), // 0.12 * 255
+              // ✅ ADDED const
               child: const Column(
                 children: [
-                  // ✅ Use AppText
+                  // ✅ ADDED const
                   AppText(
-                    "“From Zero Comes Innovation — That’s Shunya.”", // Corrected
-                    variant: AppTextVariant.body, // titleMedium equivalent
+                    "“From Zero Comes Innovation — That’s ŚŪNYA.”",
+                    variant: AppTextVariant.body,
                     textAlign: TextAlign.center,
                     color: Colors.white,
-                    style: TextStyle(fontStyle: FontStyle.italic), // Apply italic via style
+                    style: TextStyle(fontStyle: FontStyle.italic),
                   ),
+                  // ✅ ADDED const
                   SizedBox(height: 12),
-                  // ✅ Use AppText
+                  // ✅ ADDED const
                   AppText(
                     "We’re a group of AI enthusiasts from Poornima University dedicated to creating efficient and impactful digital solutions.",
-                    variant: AppTextVariant.body, // bodyMedium equivalent
+                    variant: AppTextVariant.body,
                     textAlign: TextAlign.center,
                     color: Colors.white70,
-                    style: TextStyle(height: 1.4), // Line height
+                    style: TextStyle(height: 1.4),
                   ),
                 ],
               ),
             ).animate().fadeIn(duration: 800.ms).scale(begin: const Offset(0.95, 0.95)),
             const SizedBox(height: 40),
 
-            // --- Meet the Team Title ---
-            // ✅ Use AppText
             const AppText(
               "Meet the Team",
-              variant: AppTextVariant.h2, // headlineSmall equivalent
+              variant: AppTextVariant.h2,
               color: Colors.white,
               fontWeight: FontWeight.bold,
             ).animate().fadeIn(delay: 400.ms),
-            const SizedBox(height: 20), // More space before grid
+            const SizedBox(height: 20), 
 
-            // --- Team Grid ---
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -178,20 +171,18 @@ class AboutUsScreen extends StatelessWidget {
                 crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
-                childAspectRatio: 0.8, // Adjust ratio if needed with GlassContainer
+                childAspectRatio: 0.8,
               ),
               itemCount: teamMembers.length,
               itemBuilder: (context, index) {
                 final member = teamMembers[index];
-                // Use Animate widget from flutter_animate
                 return Animate(
                   effects: [
                     FadeEffect(delay: (index * 150).ms, duration: 500.ms),
-                    const ScaleEffect(begin: Offset(0.9, 0.9)),
-                    // Add a slight slide-up effect
-                    const MoveEffect(begin: Offset(0, 20), curve: Curves.easeOutQuart)
+                    ScaleEffect(begin: const Offset(0.9, 0.9)),
+                    MoveEffect(begin: const Offset(0, 20), curve: Curves.easeOutQuart)
                   ],
-                  child: MemberGridCard( // This now uses GlassContainer internally
+                  child: MemberGridCard(
                     name: member['name'] ?? 'N/A',
                     role: member['role'] ?? 'N/A',
                     avatarAssetPath: member['avatarAssetPath'] ?? '',
@@ -202,31 +193,32 @@ class AboutUsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 50),
 
-            // --- Footer / Thank You ---
-            Column(
+            // ✅ ADDED const
+            const Column(
               children: [
-                // ✅ Use AppText
-                const AppText(
+                AppText(
                   "Thank You!",
-                  variant: AppTextVariant.h3, // headlineMedium equivalent
+                  variant: AppTextVariant.h3, 
                   textAlign: TextAlign.center,
-                  color: Colors.white, // Or theme.colorScheme.primary if preferred
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
-                )
-                    .animate()
-                    .fadeIn(delay: 300.ms)
-                    .scale(begin: const Offset(0.9, 0.9)),
-                const SizedBox(height: 8),
-                // ✅ Use AppText
-                const AppText(
-                  "© 2025 Team Shunya | Poornima University", // Corrected
-                  variant: AppTextVariant.small, // bodySmall equivalent
+                ),
+                SizedBox(height: 8),
+                AppText(
+                  "© 2025 TECH ŚŪNYA | Poornima University",
+                  variant: AppTextVariant.small,
                   textAlign: TextAlign.center,
                   color: Colors.white70,
                   letterSpacing: 1,
                 ),
               ],
-            ),
+            )
+             // ✅ Moved animations to wrap the individual Text widgets
+             // for better composability, though your original way is also fine.
+             // Kept your original animation on the parent Column for simplicity.
+             .animate()
+             .fadeIn(delay: 300.ms)
+             .scale(begin: const Offset(0.9, 0.9)),
           ],
         ),
       ),

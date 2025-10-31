@@ -1,8 +1,13 @@
+// lib/screens/auth/login_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_auth/firebase_auth.dart' as auth; 
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:seminar_booking_app/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -32,13 +37,55 @@ class _LoginScreenState extends State<LoginScreen> {
           _errorText = 'Invalid email or password.';
           _emailController.clear();
           _passwordController.clear();
-
         });
       }
     }
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    final appState = context.read<AppState>();
+    final authService = context.read<AuthService>();
+
+    if (appState.isLoading) return;
+
+    setState(() {
+      _errorText = null;
+    });
+
+    try {
+      final user = await authService.signInWithGoogle();
+
+      if (user == null && mounted) {
+         setState(() {
+           _errorText = 'Google Sign-In failed. Please try again.';
+         });
+      }
+
+    } on auth.FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          if (e.code == 'invalid-email-domain') {
+            _errorText = 'Only @poornima.edu.in accounts are allowed.';
+          } else if (e.code == 'account-exists-with-different-credential') {
+             _errorText = 'An account already exists with this email.';
+          } else {
+             _errorText = 'Google Sign-In Error. Please try again.';
+             print('Google Sign-In Error: ${e.message}');
+          }
+        });
+      }
+    } catch (e) {
+       if (mounted) {
+         setState(() {
+           _errorText = 'An unexpected error occurred.';
+           print('Unexpected Google Sign-In Error: $e');
+         });
+       }
+    }
+  }
+
   void _handleForgotPassword() async {
+    // ... (This function is unchanged)
     final email = _emailController.text.trim();
     const adminEmail = '2024bcamafsmohit19405@poornima.edu.in';
     final subject = Uri.encodeComponent('Request for Password Reset');
@@ -50,9 +97,11 @@ class _LoginScreenState extends State<LoginScreen> {
     if (await canLaunchUrl(mailtoLink)) {
       await launchUrl(mailtoLink);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open email client.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open email client.')),
+        );
+      }
     }
   }
 
@@ -110,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                              onPressed: _handleForgotPassword,
+                              onPressed: appState.isLoading ? null : _handleForgotPassword,
                               child: const Text("Forgot Password?")),
                         ),
                         if (_errorText != null) ...[
@@ -126,23 +175,40 @@ class _LoginScreenState extends State<LoginScreen> {
                               padding:
                                   const EdgeInsets.symmetric(vertical: 16)),
                           child: appState.isLoading
-                              ? const CircularProgressIndicator( // <--- ✅ FIXED
-                                  color: Colors.white,
+                              ? const SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 3.0),
                                 )
                               : const Text('Login'),
                         ),
                         const SizedBox(height: 16),
-                        TextButton(
-                            onPressed: () => context.go('/register'),
-                            child:
-                                const Text("Don't have an account? Register")),
+                        
+                        OutlinedButton.icon(
+                          icon: const FaIcon(FontAwesomeIcons.google, size: 18),
+                          label: const Text('Sign in with Google'),
+                          onPressed: appState.isLoading ? null : _handleGoogleSignIn,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: BorderSide(color: Theme.of(context).dividerColor),
+                          ),
+                        ),
+                        
+                        // ✅ REMOVED THE "Register" BUTTON
+                        // const SizedBox(height: 16),
+                        // TextButton(
+                        //     onPressed: appState.isLoading ? null : () => context.go('/register'),
+                        //     child:
+                        //         const Text("Don't have an account? Register")),
                       ],
                     ),
                   ),
                 ),
               ),
             ),
-            const Text('Developed by Team Shunya',
+            // ✅ UPDATED TEAM NAME
+            const Text('Developed by TECH ŚŪNYA',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Colors.grey)),
           ],

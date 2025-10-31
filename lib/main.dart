@@ -12,7 +12,6 @@ import 'package:seminar_booking_app/config/theme.dart';
 import 'package:seminar_booking_app/providers/app_state.dart';
 import 'package:seminar_booking_app/widgets/app_shell.dart';
 import 'package:seminar_booking_app/screens/auth/login_screen.dart';
-import 'package:seminar_booking_app/screens/auth/register_screen.dart';
 import 'package:seminar_booking_app/screens/shared/facilities_screen.dart';
 import 'package:seminar_booking_app/screens/shared/profile_screen.dart';
 import 'package:seminar_booking_app/screens/shared/notifications_screen.dart';
@@ -32,26 +31,22 @@ import 'package:seminar_booking_app/screens/admin/review_booking_screen.dart';
 import 'package:seminar_booking_app/screens/admin/manage_hub_screen.dart';
 import 'package:collection/collection.dart'; // Used for .firstWhereOrNull
 import 'package:seminar_booking_app/screens/faculty/booking_confirmation_screen.dart';
-import 'package:seminar_booking_app/screens/shared/about_us_screen.dart'; // ✅ IMPORT THE NEW SCREEN
+import 'package:seminar_booking_app/screens/shared/about_us_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // Initialize push notification service but don't save token yet
   await PushNotificationService().initialize();
-  // Set up services to be provided
   final authService = AuthService();
   final firestoreService = FirestoreService();
 
   runApp(
     MultiProvider(
       providers: [
-        // Make services available to the widget tree
         Provider.value(value: authService),
         Provider.value(value: firestoreService),
-        // The main AppState provider that depends on the services
         ChangeNotifierProvider(
           create: (context) => AppState(
             authService: authService,
@@ -83,7 +78,6 @@ class _SeminarAppState extends State<SeminarApp> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch for theme changes in AppState
     final themeMode = context.select((AppState state) =>
         state.isDarkMode ? ThemeMode.dark : ThemeMode.light);
 
@@ -100,19 +94,22 @@ class _SeminarAppState extends State<SeminarApp> {
 
 GoRouter createRouter(AppState appState) {
   return GoRouter(
-    initialLocation: '/home', // Or '/login' if you prefer
+    initialLocation: '/login', 
     refreshListenable: appState,
     debugLogDiagnostics: true,
     routes: [
       // Standalone routes (no shell)
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-      GoRoute(
-          path: '/register',
-          builder: (context, state) => const RegisterScreen()),
+      
+      // ✅ DELETED THE /register ROUTE
+      // GoRoute(
+      //     path: '/register',
+      //     builder: (context, state) => const RegisterScreen()),
 
       GoRoute(
         path: '/booking/form',
         builder: (context, state) {
+          // ... (rest of the route is unchanged)
           final hallId = state.uri.queryParameters['hallId'];
           final dateStr = state.uri.queryParameters['date'];
           final startTimeStr = state.uri.queryParameters['startTime'];
@@ -128,19 +125,16 @@ GoRouter createRouter(AppState appState) {
               ),
             );
           }
-
           try {
             final hall = context
                 .read<AppState>()
                 .halls
                 .firstWhereOrNull((h) => h.id == hallId);
-
             if (hall == null) {
               return Scaffold(
                   body:
                       Center(child: Text('Error: Hall $hallId not found.')));
             }
-
             final date = DateTime.parse(dateStr);
             final startTime = TimeOfDay(
               hour: int.parse(startTimeStr.split(':')[0]),
@@ -150,7 +144,6 @@ GoRouter createRouter(AppState appState) {
               hour: int.parse(endTimeStr.split(':')[0]),
               minute: int.parse(endTimeStr.split(':')[1]),
             );
-
             return BookingFormScreen(
               hall: hall,
               date: date,
@@ -172,7 +165,6 @@ GoRouter createRouter(AppState appState) {
         builder: (context, state) => const BookingConfirmationScreen(),
       ),
 
-      // ✅ ADD THE ABOUT US ROUTE (STANDALONE)
       GoRoute(
         path: '/about-us',
         builder: (context, state) => const AboutUsScreen(),
@@ -182,6 +174,7 @@ GoRouter createRouter(AppState appState) {
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
+          // ... (all other ShellRoute routes are unchanged)
           // Shared Routes
           GoRoute(
               path: '/facilities',
@@ -233,9 +226,9 @@ GoRouter createRouter(AppState appState) {
                     body: Center(child: Text('Error: Hall ID missing.')));
               }
               final hall = context
-                  .read<AppState>()
-                  .halls
-                  .firstWhereOrNull((h) => h.id == hallId);
+                .read<AppState>()
+                .halls
+                .firstWhereOrNull((h) => h.id == hallId);
               if (hall == null) {
                 return Scaffold(
                     body: Center(
@@ -295,20 +288,35 @@ GoRouter createRouter(AppState appState) {
     // --- Redirection Logic ---
     redirect: (context, state) {
       final isLoggedIn = appState.isLoggedIn;
-      final role = appState.currentUser?.role;
+      final currentUser = appState.currentUser;
+      final role = currentUser?.role;
       final location = state.matchedLocation;
+      
+      // ✅ REMOVED /register FROM THE CHECK
       final isAuthPage = location == '/login' ||
-          location == '/register' ||
           location == '/splash';
 
+      // 1. If user is not logged in and not on an auth page, redirect to login
       if (!isLoggedIn && !isAuthPage) {
         return '/login';
       }
 
-      if (isLoggedIn && isAuthPage && location != '/splash') {
+      // 2. If user is logged in and tries to go to an auth page, redirect to home
+      if (isLoggedIn && isAuthPage) {
         return role == 'admin' ? '/admin/home' : '/';
       }
 
+      // 3. Check for new Google Sign-In users with incomplete data
+      if (isLoggedIn &&
+          (currentUser?.department == 'Unknown' ||
+           currentUser?.employeeId == '0000')) {
+        
+        if (location != '/profile') {
+          return '/profile';
+        }
+      }
+
+      // 4. Secure admin routes
       final bool isFaculty = role == 'Faculty';
       final bool isAdminPage = location.startsWith('/admin');
 
@@ -316,7 +324,7 @@ GoRouter createRouter(AppState appState) {
         return '/';
       }
 
-      return null; // No redirect needed
+      return null;
     },
   );
 }

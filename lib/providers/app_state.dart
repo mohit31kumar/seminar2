@@ -50,6 +50,7 @@ class AppState with ChangeNotifier {
     _currentUser = user;
     _isLoading = false;
 
+    // Cancel all previous streams on auth change
     _hallsSubscription?.cancel();
     _bookingsSubscription?.cancel();
     _allUsersSubscription?.cancel();
@@ -69,7 +70,7 @@ class AppState with ChangeNotifier {
 
       // Role-based subscriptions
       if (user.role == 'admin') {
-        // Admin ko saare bookings aur saare users milenge
+        // Admin gets all bookings and all users
         _bookingsSubscription =
             firestoreService.getAllBookings().listen((bookings) {
           _bookings = bookings;
@@ -80,16 +81,17 @@ class AppState with ChangeNotifier {
           notifyListeners();
         });
       } else {
-        // Faculty user ke liye
-        // Faculty user ko sirf unke apne bookings milenge
+        // Faculty user only gets their own bookings
         _bookingsSubscription =
             firestoreService.getUserBookings(user.uid).listen((bookings) {
           _bookings = bookings;
           notifyListeners();
         });
+        // Clear admin-only data
+        _allUsers = [];
       }
     } else {
-      // Logout par saara data clear karna
+      // Clear all data on logout
       _halls = [];
       _bookings = [];
       _allUsers = [];
@@ -99,28 +101,25 @@ class AppState with ChangeNotifier {
   }
 
   Future<bool> login(String email, String password) async {
-  _isLoading = true;
-  notifyListeners();
-  
-  try {
-    final user = await authService.signInWithEmailAndPassword(email, password);
+    _isLoading = true;
+    notifyListeners();
     
-    // If login fails, authStateChanges won't fire, so we manually stop loading.
-    if (user == null) {
+    try {
+      final user = await authService.signInWithEmailAndPassword(email, password);
+      // If login fails, authService returns null
+      if (user == null) {
+        _isLoading = false;
+        notifyListeners();
+      }
+      // On success, _onAuthStateChanged will set isLoading = false
+      return user != null;
+    } catch (e) {
+      // On any exception, stop loading
       _isLoading = false;
       notifyListeners();
+      return false;
     }
-    return user != null;
-    
-  } catch (e) {
-    // Also stop loading on any unexpected error
-    _isLoading = false;
-    notifyListeners();
-    return false;
   }
-  // Note: On successful login, _onAuthStateChanged will also set _isLoading = false,
-  // which is fine.
-}
 
   Future<void> logout() async {
     await authService.signOut();
@@ -130,18 +129,19 @@ class AppState with ChangeNotifier {
   Future<void> updateUserProfile({
     required String name,
     required String department,
+    required String employeeId, // Added this
   }) async {
-    if (_currentUser == null) return; // Safety check
+    if (_currentUser == null) return;
     await firestoreService.updateUserProfile(_currentUser!.uid, {
       'name': name,
       'department': department,
+      'employeeId': employeeId, // Pass it to the service
     });
-    // The real-time stream will automatically update the UI, so no notifyListeners() is needed here.
+    // The real-time stream will automatically update the UI.
   }
 
-  /// Calls the service to securely change a user's role via a Cloud Function.
+  /// Calls the service to securely change a user's role.
   Future<String?> updateUserRole(String uid, String newRole) async {
-    // This forwards the call to the firestoreService, which calls the cloud function.
     return await firestoreService.changeUserRole(uid: uid, newRole: newRole);
   }
 

@@ -4,15 +4,12 @@ import 'package:seminar_booking_app/models/user.dart';
 import 'package:seminar_booking_app/models/seminar_hall.dart';
 import 'package:seminar_booking_app/models/booking.dart';
 import 'package:seminar_booking_app/models/notification.dart';
-
-// ✅ IMPORT THE STORAGE SERVICE
 import 'package:seminar_booking_app/services/storage_service.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // (User methods are unchanged)
-  // ...
+  // --- USER METHODS ---
   Future<void> createUser({
     required String uid,
     required String name,
@@ -48,8 +45,8 @@ class FirestoreService {
   }
 
   Future<void> updateUserProfile(String uid, Map<String, dynamic> data) {
+    // We allow name, department, and employeeId to be updated.
     data.remove('email');
-    data.remove('employeeId');
     data.remove('role');
 
     return _db.collection('users').doc(uid).update(data);
@@ -60,10 +57,12 @@ class FirestoreService {
   }
 
   Future<void> updateUserRole(String uid, String newRole) {
+    // This logic is now in changeUserRole
+    print("updateUserRole is deprecated, use changeUserRole");
     return _db.collection('users').doc(uid).update({'role': newRole});
   }
-
-  // --- HALL METHODS (UPDATED) ---
+  
+  // --- HALL METHODS ---
   Stream<List<SeminarHall>> getSeminarHalls() {
     return _db.collection('seminarHalls').snapshots().map((snapshot) =>
         snapshot.docs.map((doc) => SeminarHall.fromFirestore(doc)).toList());
@@ -76,8 +75,6 @@ class FirestoreService {
         .update({'isAvailable': isAvailable});
   }
 
-  /// Creates a new hall document *without* an imageUrl.
-  /// Returns the DocumentReference of the new hall.
   Future<DocumentReference> createHallDocument({
     required String name,
     required int capacity,
@@ -90,11 +87,10 @@ class FirestoreService {
       'facilities': facilities,
       'description': description,
       'isAvailable': true,
-      'imageUrl': '', // Set to empty string initially
+      'imageUrl': '',
     });
   }
 
-  /// Adds or updates the imageUrl for a hall document.
   Future<void> updateHallImageUrl(String hallId, String imageUrl) {
     return _db
         .collection('seminarHalls')
@@ -102,8 +98,6 @@ class FirestoreService {
         .update({'imageUrl': imageUrl});
   }
 
-
-  /// Updates an existing document in the 'seminarHalls' collection.
   Future<void> updateHall({
     required String hallId,
     required String name,
@@ -121,36 +115,27 @@ class FirestoreService {
     });
   }
 
-  // --- ✅ THIS FUNCTION IS NOW FIXED ---
-  /// Deletes a hall from the database.
   Future<void> deleteHall(String hallId) async {
     try {
-      // 1. Get the document first to find its imageUrl
       final doc = await _db.collection('seminarHalls').doc(hallId).get();
-      if (!doc.exists) return; // Hall already deleted
+      if (!doc.exists) return;
       
       final imageUrl = doc.data()?['imageUrl'] as String?;
     
-      // 2. If an image URL exists, delete it from Storage
       if (imageUrl != null && imageUrl.isNotEmpty) {
         final storageService = StorageService(); 
         await storageService.deleteImage(imageUrl);
       }
     
-      // 3. Finally, delete the Firestore document
       await _db.collection('seminarHalls').doc(hallId).delete();
       
     } catch (e) {
-      // If deleting the image fails, re-throw the error
-      // so the user knows something went wrong.
       print('Error deleting hall: $e');
       rethrow;
     }
   }
-  // --- END OF FIX ---
-
-  // (Booking methods are unchanged)
-  // ...
+  
+  // --- BOOKING METHODS ---
   Stream<List<Booking>> getAllBookings() {
     return _db.collection('bookings').snapshots().map((snapshot) =>
         snapshot.docs.map((doc) => Booking.fromFirestore(doc)).toList());
@@ -179,9 +164,8 @@ class FirestoreService {
         .doc(bookingId)
         .update({'status': 'Cancelled'});
   }
-
-  // (Notification methods are unchanged)
-  // ...
+  
+  // --- NOTIFICATION METHODS ---
   Stream<List<AppNotification>> getNotifications(String userId) {
     return _db
         .collection('notifications')
@@ -203,11 +187,13 @@ class FirestoreService {
     await batch.commit();
   }
 
+  // --- ROLE MANAGEMENT ---
   Future<String?> changeUserRole({
     required String uid,
     required String newRole,
   }) async {
     try {
+      // 1. Call Cloud Function to set Custom Claim for security
       final callable =
           FirebaseFunctions.instance.httpsCallable('changeUserRole');
       await callable.call(<String, dynamic>{
@@ -215,12 +201,12 @@ class FirestoreService {
         'newRole': newRole,
       });
 
-      // Also update the Firestore document
+      // 2. Update the Firestore document so the app UI updates
       await _db.collection('users').doc(uid).update({'role': newRole});
 
-      return null; // Success
+      return null;
     } on FirebaseFunctionsException catch (e) {
-      return e.message; // Return error from the cloud function
+      return e.message;
     } catch (e) {
       return "An unexpected client-side error occurred.";
     }
